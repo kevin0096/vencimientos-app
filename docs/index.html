@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>Control de Vencimientos</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ========== Pantalla: falta configurar la nube ========== -->
+  <div id="pantalla-config" class="pantalla-centrada oculto">
+    <div class="caja-login">
+      <h1>📦 Control de Vencimientos</h1>
+      <p class="aviso-config">
+        ⚙️ Falta configurar la conexión a la nube.<br /><br />
+        Hay que crear el proyecto gratuito en Supabase y pegar la URL y la
+        clave en el archivo <code>config.js</code>. Revisa la guía
+        <strong>CONFIGURAR-NUBE.md</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- ========== Pantalla: login / registro ========== -->
+  <div id="pantalla-login" class="pantalla-centrada oculto">
+    <div class="caja-login">
+      <h1>📦 Control de Vencimientos</h1>
+      <p class="subtitulo" id="login-subtitulo">Inicia sesión para continuar</p>
+
+      <label id="campo-nombre" class="oculto">
+        Tu nombre
+        <input type="text" id="login-nombre" placeholder="Ej: Kevin" autocomplete="name" />
+      </label>
+      <label>
+        Correo
+        <input type="email" id="login-email" placeholder="correo@gmail.com" autocomplete="email" />
+      </label>
+      <label>
+        Contraseña
+        <input type="password" id="login-password" placeholder="Mínimo 6 caracteres" autocomplete="current-password" />
+      </label>
+
+      <p id="login-error" class="error oculto"></p>
+
+      <button id="btn-login" class="btn primario">Entrar</button>
+      <button id="btn-cambiar-modo" class="btn enlace">¿No tienes cuenta? Regístrate</button>
+    </div>
+  </div>
+
+  <!-- ========== Pantalla: esperando aprobación del admin ========== -->
+  <div id="pantalla-espera" class="pantalla-centrada oculto">
+    <div class="caja-login">
+      <h1>⏳</h1>
+      <p class="subtitulo">
+        Tu cuenta fue creada, pero <strong>todavía no tiene acceso</strong>.<br /><br />
+        Pídele al administrador que apruebe tu usuario y vuelve a intentar.
+      </p>
+      <button id="btn-reintentar" class="btn primario">Volver a comprobar</button>
+      <button id="btn-salir-espera" class="btn enlace">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <!-- ========== App principal ========== -->
+  <div id="pantalla-app" class="oculto">
+    <header class="app-header">
+      <div>
+        <h1>📦 Vencimientos</h1>
+        <span id="usuario-actual" class="usuario"></span>
+      </div>
+      <button id="btn-logout" class="btn-icono" title="Cerrar sesión">🚪</button>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab activa" data-tab="productos">🛒 Productos</button>
+      <button class="tab" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab oculto" data-tab="admin" id="tab-admin">👥 Usuarios</button>
+    </nav>
+
+    <!-- ===== Pestaña Productos ===== -->
+    <main id="vista-productos" class="vista">
+      <section id="resumen" class="resumen oculto">
+        <div id="resumen-vencidos" class="resumen-item vencido oculto"></div>
+        <div id="resumen-porvencer" class="resumen-item porvencer oculto"></div>
+      </section>
+
+      <div id="filtro-categorias" class="chips"></div>
+
+      <section id="lista-productos" class="lista"></section>
+      <p id="mensaje-vacio" class="vacio oculto">
+        No hay productos registrados.<br />
+        Toca el botón <strong>+ 📷</strong> para tomar la foto del primero.
+      </p>
+      <p id="mensaje-cargando" class="vacio">Cargando productos…</p>
+    </main>
+
+    <!-- ===== Pestaña Dashboard ===== -->
+    <main id="vista-dashboard" class="vista oculto">
+      <h2 class="titulo-seccion">📅 Próximos a vencer en el año</h2>
+      <div class="selector-anio">
+        <button id="anio-prev" class="btn-anio">‹</button>
+        <span id="anio-actual"></span>
+        <button id="anio-next" class="btn-anio">›</button>
+      </div>
+      <div id="grid-meses" class="grid-meses"></div>
+      <h3 class="titulo-sub" id="titulo-detalle-mes"></h3>
+      <div id="detalle-mes" class="barras"></div>
+
+      <h2 class="titulo-seccion separado">📊 Productos retirados</h2>
+      <div class="kpis">
+        <div class="kpi"><span id="kpi-hoy">0</span><label>Hoy</label></div>
+        <div class="kpi"><span id="kpi-semana">0</span><label>Últimos 7 días</label></div>
+        <div class="kpi"><span id="kpi-mes">0</span><label>Este mes</label></div>
+        <div class="kpi"><span id="kpi-total">0</span><label>Total</label></div>
+      </div>
+
+      <h3 class="titulo-sub">Por categoría</h3>
+      <div id="grafico-categorias" class="barras"></div>
+
+      <h3 class="titulo-sub">Por usuario</h3>
+      <div id="grafico-usuarios" class="barras"></div>
+
+      <h3 class="titulo-sub">Últimos retiros</h3>
+      <div id="historial-retiros" class="historial"></div>
+    </main>
+
+    <!-- ===== Pestaña Admin (usuarios) ===== -->
+    <main id="vista-admin" class="vista oculto">
+      <h2 class="titulo-seccion">👥 Gestión de usuarios</h2>
+      <p class="ayuda">Solo los usuarios con acceso aprobado pueden entrar a la app.</p>
+      <div id="lista-usuarios" class="lista"></div>
+    </main>
+
+    <button id="btn-agregar" class="fab" title="Agregar producto">+ 📷</button>
+    <input type="file" id="input-camara" accept="image/*" capture="environment" hidden />
+  </div>
+
+  <!-- ========== Modal: nuevo producto ========== -->
+  <div id="modal-form" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>Nuevo producto</h2>
+      <img id="foto-preview" alt="Foto del producto" />
+      <label>
+        Nombre del producto
+        <input type="text" id="input-nombre" placeholder="Ej: Leche Gloria" autocomplete="off" />
+      </label>
+      <label>
+        Categoría
+        <select id="input-categoria"></select>
+      </label>
+      <label>
+        Fecha de vencimiento
+        <input type="date" id="input-fecha" />
+      </label>
+      <label>
+        Avisarme
+        <select id="input-anticipacion">
+          <option value="1" selected>1 día antes</option>
+          <option value="2">2 días antes</option>
+          <option value="3">3 días antes</option>
+          <option value="7">1 semana antes</option>
+        </select>
+      </label>
+      <div class="modal-botones">
+        <button id="btn-cancelar" class="btn secundario">Cancelar</button>
+        <button id="btn-guardar" class="btn primario">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Modal: ver foto ========== -->
+  <div id="modal-foto" class="modal oculto">
+    <div class="modal-contenido foto-grande">
+      <img id="foto-ampliada" alt="Foto ampliada" />
+      <button id="btn-cerrar-foto" class="btn secundario">Cerrar</button>
+    </div>
+  </div>
+
+  <script src="lib/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

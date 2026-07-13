@@ -1,0 +1,14 @@
+﻿{
+  "appId": "com.kevin.vencimientos",
+  "appName": "Control de Vencimientos",
+  "webDir": "docs",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#0f766e"
+    }
+  }
+}
+
