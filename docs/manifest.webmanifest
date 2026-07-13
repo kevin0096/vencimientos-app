@@ -1,0 +1,13 @@
+{
+  "name": "Control de Vencimientos",
+  "short_name": "Vencimientos",
+  "description": "Control de productos por vencer de la bodega",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0f766e",
+  "lang": "es",
+  "icons": [
+    { "src": "icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

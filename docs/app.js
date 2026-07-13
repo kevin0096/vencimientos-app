@@ -27,8 +27,11 @@ let sb = null;
 let perfilActual = null;
 let modoRegistro = false;
 let filtroCategoria = 'Todos';
+let textoBusqueda = '';
 let fotoPendiente = null;
+let productoEditando = null; // null = creando producto nuevo
 let productosCache = [];
+let retirosCache = [];
 
 function configValida() {
   const c = window.CONFIG_NUBE || {};
@@ -195,30 +198,52 @@ async function cargarProductos() {
   pintarLista();
 }
 
-async function guardarNuevoProducto() {
+async function guardarProducto() {
   const nombre = $('#input-nombre').value.trim();
   const fecha = $('#input-fecha').value;
   const categoria = $('#input-categoria').value;
+  const cantidad = Math.max(1, Math.round(Number($('#input-cantidad').value) || 1));
   if (!nombre) { alert('Escribe el nombre del producto.'); return; }
   if (!fecha) { alert('Elige la fecha de vencimiento.'); return; }
 
   $('#btn-guardar').disabled = true;
   $('#btn-guardar').textContent = 'Guardando…';
   try {
-    const { data, error } = await sb.from('productos').insert({
+    const payload = {
       nombre,
       categoria,
+      cantidad,
       fecha_vencimiento: fecha,
       anticipacion: Number($('#input-anticipacion').value),
-      foto: fotoPendiente,
-      creado_por: perfilActual.id,
-      creado_por_nombre: perfilActual.nombre || perfilActual.email,
-    }).select().single();
+    };
+
+    let data, error;
+    if (productoEditando) {
+      ({ data, error } = await sb.from('productos').update(payload)
+        .eq('id', productoEditando.id).select().single());
+      // Si la columna "cantidad" aún no existe en la base, reintentar sin ella.
+      if (error && /cantidad/.test(error.message)) {
+        delete payload.cantidad;
+        ({ data, error } = await sb.from('productos').update(payload)
+          .eq('id', productoEditando.id).select().single());
+      }
+    } else {
+      payload.foto = fotoPendiente;
+      payload.creado_por = perfilActual.id;
+      payload.creado_por_nombre = perfilActual.nombre || perfilActual.email;
+      ({ data, error } = await sb.from('productos').insert(payload).select().single());
+      if (error && /cantidad/.test(error.message)) {
+        delete payload.cantidad;
+        ({ data, error } = await sb.from('productos').insert(payload).select().single());
+      }
+    }
 
     if (error) { alert('No se pudo guardar: ' + error.message); return; }
 
+    await cancelarAlarmas(data.id);
     await programarAlarmas(data);
     fotoPendiente = null;
+    productoEditando = null;
     $('#modal-form').classList.add('oculto');
     await cargarProductos();
   } finally {
@@ -287,13 +312,14 @@ function construirNotificaciones(p) {
   const fechaVence = parsearFecha(p.fecha_vencimiento);
   fechaVence.setHours(HORA_VENCE_HOY, 0, 0, 0);
 
+  const etiqueta = (p.cantidad > 1 ? `${p.cantidad} × ` : '') + p.nombre;
   const ahora = new Date();
   const lista = [];
   if (fechaAviso > ahora) {
     lista.push({
       id: idAviso,
       title: '⚠️ Producto por vencer',
-      body: `"${p.nombre}" (${p.categoria}) vence ${p.anticipacion === 1 ? 'MAÑANA' : `en ${p.anticipacion} días`} (${formatearFecha(p.fecha_vencimiento)}). ¡Revísalo!`,
+      body: `"${etiqueta}" (${p.categoria}) vence ${p.anticipacion === 1 ? 'MAÑANA' : `en ${p.anticipacion} días`} (${formatearFecha(p.fecha_vencimiento)}). ¡Revísalo!`,
       schedule: { at: fechaAviso, allowWhileIdle: true },
     });
   }
@@ -301,7 +327,7 @@ function construirNotificaciones(p) {
     lista.push({
       id: idVence,
       title: '🚨 ¡Producto vence HOY!',
-      body: `"${p.nombre}" (${p.categoria}) vence hoy. Retíralo del stock.`,
+      body: `"${etiqueta}" (${p.categoria}) vence hoy. Retíralo del stock.`,
       schedule: { at: fechaVence, allowWhileIdle: true },
     });
   }
@@ -412,10 +438,17 @@ function pintarChips() {
   });
 }
 
+function normalizar(t) {
+  return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function pintarLista() {
-  const productos = filtroCategoria === 'Todos'
+  let productos = filtroCategoria === 'Todos'
     ? productosCache
     : productosCache.filter((p) => p.categoria === filtroCategoria);
+  if (textoBusqueda) {
+    productos = productos.filter((p) => normalizar(p.nombre).includes(normalizar(textoBusqueda)));
+  }
 
   const lista = $('#lista-productos');
   lista.innerHTML = '';
@@ -438,21 +471,25 @@ function pintarLista() {
     const { clase, texto } = estadoProducto(dias);
     const tarjeta = document.createElement('div');
     tarjeta.className = `tarjeta ${clase}`;
+    const unidades = p.cantidad || 1;
     tarjeta.innerHTML = `
       <img alt="" />
       <div class="info">
-        <div class="nombre"></div>
+        <div class="nombre"><span class="nombre-texto"></span>${unidades > 1 ? `<span class="cantidad-badge">x${unidades}</span>` : ''}</div>
         <span class="categoria"></span>
         <div class="fecha">Vence: ${formatearFecha(p.fecha_vencimiento)}</div>
         <div class="estado">${texto}</div>
       </div>
       <div class="acciones">
         <button class="btn-retirar">✅ Retirar</button>
-        <button class="btn-borrar" title="Eliminar">🗑️</button>
+        <div class="fila-iconos">
+          <button class="btn-editar" title="Editar">✏️</button>
+          <button class="btn-borrar" title="Eliminar">🗑️</button>
+        </div>
       </div>
     `;
     tarjeta.querySelector('img').src = p.foto || '';
-    tarjeta.querySelector('.nombre').textContent = p.nombre;
+    tarjeta.querySelector('.nombre-texto').textContent = p.nombre;
     tarjeta.querySelector('.categoria').textContent = p.categoria;
     tarjeta.querySelector('img').addEventListener('click', () => {
       if (!p.foto) return;
@@ -460,17 +497,23 @@ function pintarLista() {
       $('#modal-foto').classList.remove('oculto');
     });
     tarjeta.querySelector('.btn-retirar').addEventListener('click', () => retirarProducto(p));
+    tarjeta.querySelector('.btn-editar').addEventListener('click', () => abrirFormulario(p));
     tarjeta.querySelector('.btn-borrar').addEventListener('click', () => eliminarProducto(p));
     lista.appendChild(tarjeta);
   }
 }
 
-function abrirFormulario() {
-  $('#foto-preview').src = fotoPendiente;
-  $('#input-nombre').value = '';
+function abrirFormulario(producto = null) {
+  productoEditando = producto;
+  $('#titulo-modal').textContent = producto ? 'Editar producto' : 'Nuevo producto';
+  $('#foto-preview').src = producto ? (producto.foto || '') : fotoPendiente;
+  $('#input-nombre').value = producto ? producto.nombre : '';
+  $('#input-cantidad').value = producto ? (producto.cantidad || 1) : 1;
+  $('#input-categoria').value = producto ? producto.categoria : CATEGORIAS[0];
+  $('#input-anticipacion').value = producto ? String(producto.anticipacion) : '1';
   const manana = new Date(Date.now() + 86400000);
-  $('#input-fecha').value = fechaLocalISO(manana);
-  $('#input-fecha').min = fechaLocalISO(new Date());
+  $('#input-fecha').value = producto ? producto.fecha_vencimiento : fechaLocalISO(manana);
+  $('#input-fecha').min = producto ? '' : fechaLocalISO(new Date());
   $('#modal-form').classList.remove('oculto');
   setTimeout(() => $('#input-nombre').focus(), 100);
 }
@@ -551,40 +594,44 @@ async function pintarDashboard() {
   // Productos activos (para el control anual de vencimientos por área)
   const { data: activos, error: errorActivos } = await sb
     .from('productos')
-    .select('categoria, fecha_vencimiento')
+    .select('*')
     .eq('retirado', false);
   if (errorActivos) { alert('No se pudo cargar el dashboard: ' + errorActivos.message); return; }
   activosDashboard = activos || [];
   pintarMeses();
   pintarDetalleMes();
 
-  // Productos ya retirados (estadísticas de retiros)
+  // Productos ya retirados (estadísticas de retiros, contando unidades)
   const { data, error } = await sb
     .from('productos')
-    .select('nombre, categoria, foto, retirado_en, retirado_por_nombre')
+    .select('*')
     .eq('retirado', true)
     .order('retirado_en', { ascending: false });
 
   if (error) { alert('No se pudo cargar el dashboard: ' + error.message); return; }
   const retiros = data || [];
+  retirosCache = retiros;
+  $('#btn-exportar').classList.toggle('oculto', esNativo || !retiros.length);
 
   const ahora = new Date();
   const inicioHoy = hoySinHora();
   const hace7 = new Date(inicioHoy); hace7.setDate(hace7.getDate() - 6);
   const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
 
+  const unidades = (lista) => lista.reduce((s, r) => s + (r.cantidad || 1), 0);
   const en = (r, desde) => new Date(r.retirado_en) >= desde;
-  $('#kpi-hoy').textContent = retiros.filter((r) => en(r, inicioHoy)).length;
-  $('#kpi-semana').textContent = retiros.filter((r) => en(r, hace7)).length;
-  $('#kpi-mes').textContent = retiros.filter((r) => en(r, inicioMes)).length;
-  $('#kpi-total').textContent = retiros.length;
+  $('#kpi-hoy').textContent = unidades(retiros.filter((r) => en(r, inicioHoy)));
+  $('#kpi-semana').textContent = unidades(retiros.filter((r) => en(r, hace7)));
+  $('#kpi-mes').textContent = unidades(retiros.filter((r) => en(r, inicioMes)));
+  $('#kpi-total').textContent = unidades(retiros);
 
   const porCategoria = {};
   const porUsuario = {};
   retiros.forEach((r) => {
-    porCategoria[r.categoria] = (porCategoria[r.categoria] || 0) + 1;
+    const n = r.cantidad || 1;
+    porCategoria[r.categoria] = (porCategoria[r.categoria] || 0) + n;
     const u = r.retirado_por_nombre || '(sin nombre)';
-    porUsuario[u] = (porUsuario[u] || 0) + 1;
+    porUsuario[u] = (porUsuario[u] || 0) + n;
   });
   pintarBarras('#grafico-categorias', porCategoria);
   pintarBarras('#grafico-usuarios', porUsuario);
@@ -608,11 +655,34 @@ async function pintarDashboard() {
       </div>
     `;
     item.querySelector('img').src = r.foto || '';
-    item.querySelector('.r-nombre').textContent = r.nombre;
+    item.querySelector('.r-nombre').textContent = (r.cantidad > 1 ? `${r.cantidad} × ` : '') + r.nombre;
     item.querySelector('.r-cat').textContent = r.categoria;
     item.querySelector('.quien').textContent = `${r.retirado_por_nombre || ''} — ${fecha}`;
     hist.appendChild(item);
   }
+}
+
+// Descarga el historial de retiros como CSV (se abre en Excel).
+function exportarRetiros() {
+  const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const filas = [
+    ['Producto', 'Cantidad', 'Categoría', 'Fecha de vencimiento', 'Retirado por', 'Fecha de retiro'],
+    ...retirosCache.map((r) => [
+      r.nombre,
+      r.cantidad || 1,
+      r.categoria,
+      r.fecha_vencimiento,
+      r.retirado_por_nombre || '',
+      new Date(r.retirado_en).toLocaleString('es-PE'),
+    ]),
+  ];
+  const csv = '﻿' + filas.map((f) => f.map(esc).join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `retiros-${fechaLocalISO(new Date())}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ---------- Vista: admin (usuarios) ----------
@@ -708,11 +778,19 @@ function conectarEventos() {
     }
   });
 
-  $('#btn-guardar').addEventListener('click', guardarNuevoProducto);
+  $('#btn-guardar').addEventListener('click', guardarProducto);
   $('#btn-cancelar').addEventListener('click', () => {
     fotoPendiente = null;
+    productoEditando = null;
     $('#modal-form').classList.add('oculto');
   });
+
+  $('#buscador').addEventListener('input', (e) => {
+    textoBusqueda = e.target.value.trim();
+    pintarLista();
+  });
+
+  $('#btn-exportar').addEventListener('click', exportarRetiros);
   $('#btn-cerrar-foto').addEventListener('click', () => $('#modal-foto').classList.add('oculto'));
 
   // Al volver a la app se refrescan los datos.

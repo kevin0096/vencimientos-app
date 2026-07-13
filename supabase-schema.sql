@@ -57,6 +57,7 @@ create table public.productos (
   id bigint generated always as identity primary key,
   nombre text not null,
   categoria text not null,
+  cantidad int not null default 1,
   fecha_vencimiento date not null,
   anticipacion int not null default 1,
   foto text,
