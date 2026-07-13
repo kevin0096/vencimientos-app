@@ -2,6 +2,10 @@
   "appId": "com.kevin.vencimientos",
   "appName": "Control de Vencimientos",
   "webDir": "docs",
+  "server": {
+    "url": "https://kevin0096.github.io/vencimientos-app/",
+    "cleartext": false
+  },
   "android": {
     "allowMixedContent": false
   },
