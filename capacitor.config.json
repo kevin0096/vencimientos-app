@@ -3,7 +3,7 @@
   "appName": "Control de Vencimientos",
   "webDir": "docs",
   "server": {
-    "url": "https://kevin0096.github.io/vencimientos-app/",
+    "url": "https://controv.netlify.app",
     "cleartext": false
   },
   "android": {
