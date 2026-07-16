@@ -80,6 +80,7 @@ function mostrarVista(nombre) {
     t.classList.toggle('activa', t.dataset.tab === nombre);
   });
   $('#btn-agregar').classList.toggle('oculto', nombre !== 'productos');
+  $('#btn-escanear').classList.toggle('oculto', nombre !== 'productos');
   if (nombre === 'dashboard') pintarDashboard();
   if (nombre === 'admin') pintarUsuarios();
 }
@@ -360,7 +361,30 @@ async function reprogramarTodasLasAlarmas() {
     const todas = productosCache.flatMap(construirNotificaciones);
     // Android limita las alarmas exactas pendientes (~500); priorizamos las más próximas.
     todas.sort((a, b) => a.schedule.at - b.schedule.at);
-    const lote = todas.slice(0, 400);
+    const lote = todas.slice(0, 380);
+
+    // Resumen diario a las 9:00 pm (hora del teléfono) para los próximos 7 días:
+    // "Mañana vencen N productos". Solo se programa si ese día hay algo que avisar.
+    const ahora = new Date();
+    for (let d = 0; d < 7; d++) {
+      const dia = new Date();
+      dia.setDate(dia.getDate() + d);
+      dia.setHours(21, 0, 0, 0);
+      if (dia <= ahora) continue;
+      const fechaManana = fechaLocalISO(new Date(dia.getFullYear(), dia.getMonth(), dia.getDate() + 1));
+      const vencenManana = productosCache.filter((p) => p.fecha_vencimiento === fechaManana);
+      if (!vencenManana.length) continue;
+      const unidades = vencenManana.reduce((s, p) => s + (p.cantidad || 1), 0);
+      const nombres = vencenManana.slice(0, 4).map((p) => p.nombre).join(', ')
+        + (vencenManana.length > 4 ? '…' : '');
+      lote.push({
+        id: 2000000001 + d, // ids reservados para el resumen diario
+        title: `🔔 Mañana vence${vencenManana.length === 1 ? '' : 'n'} ${vencenManana.length} producto${vencenManana.length === 1 ? '' : 's'} (${unidades} und.)`,
+        body: `${nombres}. Revísalos y retíralos a tiempo.`,
+        schedule: { at: dia, allowWhileIdle: true },
+      });
+    }
+
     if (lote.length) await LocalNotifications.schedule({ notifications: lote });
   } catch (e) {
     console.warn('No se pudieron reprogramar alarmas:', e);
@@ -407,6 +431,63 @@ function redimensionarFoto(archivo, maxLado = 700) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+// ---------- Escáner de código de barras ----------
+let escaner = null;
+
+async function abrirEscaner() {
+  $('#modal-escaner').classList.remove('oculto');
+  $('#estado-escaner').textContent = 'Apunta la cámara al código de barras del producto…';
+  try {
+    escaner = new Html5Qrcode('lector-codigo');
+    await escaner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 140 } },
+      async (codigo) => {
+        await cerrarEscaner();
+        buscarCodigoDeBarras(codigo);
+      },
+      () => {}, // fotogramas sin código: ignorar
+    );
+  } catch (e) {
+    $('#estado-escaner').textContent =
+      '⚠️ No se pudo abrir la cámara. Revisa que la app tenga el permiso de cámara. ' + (e.message || e);
+  }
+}
+
+async function cerrarEscaner() {
+  if (escaner) {
+    try { await escaner.stop(); escaner.clear(); } catch (_) { /* ya detenido */ }
+    escaner = null;
+  }
+  $('#modal-escaner').classList.add('oculto');
+}
+
+// Busca el código en Open Food Facts (base pública mundial de productos)
+// y precarga nombre + imagen en el formulario.
+async function buscarCodigoDeBarras(codigo) {
+  try {
+    const r = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json?fields=product_name,product_name_es,brands,image_front_url,image_url`,
+    );
+    const j = await r.json();
+    if (j.status === 1 && j.product) {
+      const p = j.product;
+      const nombre = [p.product_name_es || p.product_name, p.brands ? `(${p.brands.split(',')[0].trim()})` : '']
+        .filter(Boolean).join(' ').trim();
+      abrirFormulario(null, {
+        nombre: nombre || '',
+        foto: p.image_front_url || p.image_url || null,
+        cantidad: 1,
+        categoria: CATEGORIAS[0],
+        anticipacion: 1,
+      });
+      return;
+    }
+  } catch (_) { /* sin internet o API caída: pasar al registro manual */ }
+  alert(`El código ${codigo} no está en la base pública de productos.\nRegístralo manualmente: se abrirá la cámara para tomarle foto.`);
+  $('#input-camara').click();
 }
 
 // ---------- Vista: productos ----------
@@ -483,6 +564,7 @@ function pintarLista() {
       <div class="acciones">
         <button class="btn-retirar">✅ Retirar</button>
         <div class="fila-iconos">
+          <button class="btn-duplicar" title="Nuevo lote (misma foto y nombre, otra fecha)">📋</button>
           <button class="btn-editar" title="Editar">✏️</button>
           <button class="btn-borrar" title="Eliminar">🗑️</button>
         </div>
@@ -497,20 +579,25 @@ function pintarLista() {
       $('#modal-foto').classList.remove('oculto');
     });
     tarjeta.querySelector('.btn-retirar').addEventListener('click', () => retirarProducto(p));
+    tarjeta.querySelector('.btn-duplicar').addEventListener('click', () => abrirFormulario(null, p));
     tarjeta.querySelector('.btn-editar').addEventListener('click', () => abrirFormulario(p));
     tarjeta.querySelector('.btn-borrar').addEventListener('click', () => eliminarProducto(p));
     lista.appendChild(tarjeta);
   }
 }
 
-function abrirFormulario(producto = null) {
+// producto = editar ese producto; plantilla = crear uno nuevo con datos precargados
+// (nuevo lote de un producto existente, o datos que llegan del escáner).
+function abrirFormulario(producto = null, plantilla = null) {
   productoEditando = producto;
-  $('#titulo-modal').textContent = producto ? 'Editar producto' : 'Nuevo producto';
-  $('#foto-preview').src = producto ? (producto.foto || '') : fotoPendiente;
-  $('#input-nombre').value = producto ? producto.nombre : '';
-  $('#input-cantidad').value = producto ? (producto.cantidad || 1) : 1;
-  $('#input-categoria').value = producto ? producto.categoria : CATEGORIAS[0];
-  $('#input-anticipacion').value = producto ? String(producto.anticipacion) : '1';
+  const base = producto || plantilla;
+  if (plantilla) fotoPendiente = plantilla.foto || null;
+  $('#titulo-modal').textContent = producto ? 'Editar producto' : (plantilla ? 'Nuevo lote' : 'Nuevo producto');
+  $('#foto-preview').src = (producto ? producto.foto : fotoPendiente) || '';
+  $('#input-nombre').value = base ? base.nombre : '';
+  $('#input-cantidad').value = base ? (base.cantidad || 1) : 1;
+  $('#input-categoria').value = base ? base.categoria : CATEGORIAS[0];
+  $('#input-anticipacion').value = base ? String(base.anticipacion) : '1';
   const manana = new Date(Date.now() + 86400000);
   $('#input-fecha').value = producto ? producto.fecha_vencimiento : fechaLocalISO(manana);
   $('#input-fecha').min = producto ? '' : fechaLocalISO(new Date());
@@ -524,6 +611,8 @@ const MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
 let anioDashboard = new Date().getFullYear();
 let mesSeleccionado = new Date().getMonth();
 let activosDashboard = [];
+let filtroDesde = '';
+let filtroHasta = '';
 
 // Cambia el mes visible (las flechas ‹ › ajustan también el año).
 function moverMes(direccion) {
@@ -626,12 +715,50 @@ async function pintarDashboard() {
   pintarBarras('#grafico-categorias', porCategoria);
   pintarBarras('#grafico-usuarios', porUsuario);
 
+  pintarHistorial();
+}
+
+// Retiros dentro del rango de fechas elegido (o todos si no hay filtro).
+function retirosFiltrados() {
+  return retirosCache.filter((r) => {
+    const f = new Date(r.retirado_en);
+    if (filtroDesde && f < parsearFecha(filtroDesde)) return false;
+    if (filtroHasta) {
+      const h = parsearFecha(filtroHasta);
+      h.setHours(23, 59, 59, 999);
+      if (f > h) return false;
+    }
+    return true;
+  });
+}
+
+// Devuelve un producto retirado a la lista de activos (deshacer).
+async function devolverRetiro(r) {
+  if (!confirm(`¿Devolver "${r.nombre}" a la lista de productos?`)) return;
+  const { error } = await sb.from('productos').update({
+    retirado: false,
+    retirado_en: null,
+    retirado_por_nombre: null,
+  }).eq('id', r.id);
+  if (error) { alert('No se pudo deshacer: ' + error.message); return; }
+  await programarAlarmas(r);
+  await cargarProductos();
+  pintarDashboard();
+}
+
+function pintarHistorial() {
+  const hayFiltro = !!(filtroDesde || filtroHasta);
+  $('#btn-limpiar-filtro').classList.toggle('oculto', !hayFiltro);
+  const lista = retirosFiltrados();
+
   const hist = $('#historial-retiros');
   hist.innerHTML = '';
-  if (!retiros.length) {
-    hist.innerHTML = '<p class="ayuda">Cuando retires un producto aparecerá aquí.</p>';
+  if (!lista.length) {
+    hist.innerHTML = `<p class="ayuda">${hayFiltro ? 'No hay retiros en ese rango de fechas.' : 'Cuando retires un producto aparecerá aquí.'}</p>`;
+    return;
   }
-  for (const r of retiros.slice(0, 20)) {
+  // Sin filtro se muestran los últimos 20; con filtro, todos los del rango.
+  for (const r of (hayFiltro ? lista : lista.slice(0, 20))) {
     const item = document.createElement('div');
     item.className = 'retiro-item';
     const fecha = new Date(r.retirado_en).toLocaleDateString('es-PE', {
@@ -643,11 +770,13 @@ async function pintarDashboard() {
         <div><strong class="r-nombre"></strong> · <span class="r-cat"></span></div>
         <div class="quien"></div>
       </div>
+      <button class="btn-deshacer" title="Devolver a la lista">↩️</button>
     `;
     item.querySelector('img').src = r.foto || '';
     item.querySelector('.r-nombre').textContent = `${r.cantidad || 1} × ${r.nombre}`;
     item.querySelector('.r-cat').textContent = r.categoria;
     item.querySelector('.quien').textContent = `${r.retirado_por_nombre || ''} — ${fecha}`;
+    item.querySelector('.btn-deshacer').addEventListener('click', () => devolverRetiro(r));
     hist.appendChild(item);
   }
 }
@@ -657,7 +786,7 @@ function exportarRetiros() {
   const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
   const filas = [
     ['Producto', 'Cantidad', 'Categoría', 'Fecha de vencimiento', 'Retirado por', 'Fecha de retiro'],
-    ...retirosCache.map((r) => [
+    ...retirosFiltrados().map((r) => [
       r.nombre,
       r.cantidad || 1,
       r.categoria,
@@ -773,6 +902,18 @@ function conectarEventos() {
   });
 
   $('#btn-exportar').addEventListener('click', exportarRetiros);
+
+  $('#btn-escanear').addEventListener('click', abrirEscaner);
+  $('#btn-cerrar-escaner').addEventListener('click', cerrarEscaner);
+
+  $('#filtro-desde').addEventListener('change', (e) => { filtroDesde = e.target.value; pintarHistorial(); });
+  $('#filtro-hasta').addEventListener('change', (e) => { filtroHasta = e.target.value; pintarHistorial(); });
+  $('#btn-limpiar-filtro').addEventListener('click', () => {
+    filtroDesde = filtroHasta = '';
+    $('#filtro-desde').value = '';
+    $('#filtro-hasta').value = '';
+    pintarHistorial();
+  });
   $('#btn-cerrar-foto').addEventListener('click', () => $('#modal-foto').classList.add('oculto'));
 
   // Al volver a la app se refrescan los datos.

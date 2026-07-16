@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f766e" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#171b21" media="(prefers-color-scheme: dark)" />
   <title>Control de Vencimientos</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" href="icon.png" />
@@ -125,6 +126,11 @@
       <div id="grafico-usuarios" class="barras"></div>
 
       <h3 class="titulo-sub">Últimos retiros</h3>
+      <div class="filtro-fechas">
+        <label>Desde <input type="date" id="filtro-desde" /></label>
+        <label>Hasta <input type="date" id="filtro-hasta" /></label>
+        <button id="btn-limpiar-filtro" class="btn enlace oculto">Quitar</button>
+      </div>
       <div id="historial-retiros" class="historial"></div>
     </main>
 
@@ -135,6 +141,9 @@
       <div id="lista-usuarios" class="lista"></div>
     </main>
 
+    <button id="btn-escanear" class="fab fab-escaner" title="Escanear código de barras">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 6V3h3M22 6V3h-3M2 18v3h3M22 18v3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 8v8M9.5 8v8M12.5 8v8M15 8v8M18 8v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
     <button id="btn-agregar" class="fab" title="Agregar producto">+ 📷</button>
     <input type="file" id="input-camara" accept="image/*" capture="environment" hidden />
   </div>
@@ -176,6 +185,16 @@
     </div>
   </div>
 
+  <!-- ========== Modal: escáner de código de barras ========== -->
+  <div id="modal-escaner" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>Escanear código de barras</h2>
+      <div id="lector-codigo"></div>
+      <p id="estado-escaner" class="ayuda"></p>
+      <button id="btn-cerrar-escaner" class="btn secundario">Cancelar</button>
+    </div>
+  </div>
+
   <!-- ========== Modal: ver foto ========== -->
   <div id="modal-foto" class="modal oculto">
     <div class="modal-contenido foto-grande">
@@ -185,6 +204,7 @@
   </div>
 
   <script src="lib/supabase.js"></script>
+  <script src="lib/html5-qrcode.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

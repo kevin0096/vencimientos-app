@@ -771,4 +771,120 @@ button { font-family: inherit; }
 
 .foto-grande img { width: 100%; border-radius: var(--radio-sm); }
 
+/* ---------- Escáner de código de barras ---------- */
+.fab-escaner {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  background: var(--superficie);
+  color: var(--tinta-2);
+  border: 1px solid var(--borde-fuerte);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fab-escaner:hover { background: var(--superficie-2); }
+
+#lector-codigo {
+  border-radius: var(--radio-sm);
+  overflow: hidden;
+  background: #000;
+  min-height: 120px;
+}
+
+#lector-codigo video { width: 100% !important; border-radius: var(--radio-sm); }
+
+/* ---------- Filtro de fechas del historial ---------- */
+.filtro-fechas {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.filtro-fechas label {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--tinta-3);
+}
+
+.filtro-fechas input {
+  padding: 8px 10px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  font-size: .88rem;
+  background: var(--superficie);
+  color: var(--tinta);
+  width: 100%;
+}
+
+/* ---------- Deshacer retiro ---------- */
+.btn-deshacer {
+  background: none;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  font-size: 1.05rem;
+  padding: 6px 9px;
+  cursor: pointer;
+  color: var(--tinta-2);
+  transition: background-color var(--transicion), border-color var(--transicion);
+  flex-shrink: 0;
+}
+
+.btn-deshacer:hover { background: var(--superficie-2); border-color: var(--borde-fuerte); }
+
 .oculto { display: none !important; }
+
+/* ============================================================
+   Modo oscuro (automático según el sistema del celular)
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --marca: #14b8a6;
+    --marca-osc: #0d9488;
+    --marca-claro: #2dd4bf;
+    --marca-tinte: #123230;
+
+    --dato: #0d9488;
+    --dato-pista: #16302e;
+
+    --tinta: #e6eaef;
+    --tinta-2: #a6afbb;
+    --tinta-3: #6b7480;
+
+    --fondo: #0e1114;
+    --superficie: #171b21;
+    --superficie-2: #21262e;
+    --borde: #2a303a;
+    --borde-fuerte: #3b434f;
+
+    --rojo: #f87171;      --rojo-suave: #371616;    --rojo-borde: #5c2020;
+    --naranja: #fb923c;   --naranja-suave: #35220f; --naranja-borde: #61390f;
+    --amarillo: #eab308;  --amarillo-suave: #2f2a0e;--amarillo-borde: #5a4f12;
+    --verde: #4ade80;     --verde-suave: #12291a;   --verde-borde: #1e4d2e;
+
+    --sombra: 0 1px 2px rgba(0, 0, 0, .35), 0 2px 8px rgba(0, 0, 0, .3);
+    --sombra-alta: 0 4px 12px rgba(0, 0, 0, .45), 0 12px 28px rgba(0, 0, 0, .45);
+  }
+
+  .tab.activa { border-color: #1e4a45; }
+  .btn-retirar { border-color: #1e4a45; }
+  .btn-retirar:hover { background: #15403b; }
+  .chip.activa { background: var(--tinta); border-color: var(--tinta); color: #14181d; }
+  .modal { background: rgba(0, 0, 0, .65); }
+  .btn.primario { color: #06211e; }
+  .btn-acceso.dar { color: #06211e; }
+  .fab { background: var(--marca); color: #06211e; }
+  .fab:hover { background: var(--marca-claro); }
+  .fab-escaner { background: var(--superficie); color: var(--tinta-2); }
+  .fab-escaner:hover { background: var(--superficie-2); }
+  .caja-login input, .modal-contenido input, .modal-contenido select, .buscador, .filtro-fechas input {
+    color-scheme: dark;
+  }
+}
