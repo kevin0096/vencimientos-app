@@ -101,14 +101,13 @@
     <!-- ===== Pestaña Dashboard ===== -->
     <main id="vista-dashboard" class="vista oculto">
       <button id="btn-exportar" class="btn secundario btn-exportar oculto">📥 Descargar historial (Excel/CSV)</button>
-      <h2 class="titulo-seccion">📅 Próximos a vencer en el año</h2>
-      <div class="selector-anio">
-        <button id="anio-prev" class="btn-anio">‹</button>
-        <span id="anio-actual"></span>
-        <button id="anio-next" class="btn-anio">›</button>
+      <h2 class="titulo-seccion">📅 Próximos a vencer</h2>
+      <div class="selector-mes">
+        <button id="mes-prev" class="btn-anio" title="Mes anterior">‹</button>
+        <span id="mes-actual"></span>
+        <button id="mes-next" class="btn-anio" title="Mes siguiente">›</button>
       </div>
-      <div id="grid-meses" class="grid-meses"></div>
-      <h3 class="titulo-sub" id="titulo-detalle-mes"></h3>
+      <p id="resumen-mes" class="resumen-mes"></p>
       <div id="detalle-mes" class="barras"></div>
 
       <h2 class="titulo-seccion separado">📊 Productos retirados</h2>

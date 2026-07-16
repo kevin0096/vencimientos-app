@@ -525,48 +525,39 @@ let anioDashboard = new Date().getFullYear();
 let mesSeleccionado = new Date().getMonth();
 let activosDashboard = [];
 
-// Cuadrícula de los 12 meses con la cantidad de productos que vencen en cada uno.
-function pintarMeses() {
-  $('#anio-actual').textContent = anioDashboard;
-  const grid = $('#grid-meses');
-  grid.innerHTML = '';
-
-  const porMes = Array(12).fill(0);
-  activosDashboard.forEach((p) => {
-    const f = parsearFecha(p.fecha_vencimiento);
-    if (f.getFullYear() === anioDashboard) porMes[f.getMonth()]++;
-  });
-
-  MESES.forEach((nombre, i) => {
-    const celda = document.createElement('div');
-    celda.className = 'mes-celda'
-      + (porMes[i] > 0 ? ' con-productos' : '')
-      + (i === mesSeleccionado ? ' seleccionado' : '');
-    celda.innerHTML = `<div class="mes-nombre">${nombre}</div><div class="mes-cuenta">${porMes[i]}</div>`;
-    celda.addEventListener('click', () => {
-      mesSeleccionado = i;
-      pintarMeses();
-      pintarDetalleMes();
-    });
-    grid.appendChild(celda);
-  });
+// Cambia el mes visible (las flechas ‹ › ajustan también el año).
+function moverMes(direccion) {
+  mesSeleccionado += direccion;
+  if (mesSeleccionado < 0) { mesSeleccionado = 11; anioDashboard--; }
+  if (mesSeleccionado > 11) { mesSeleccionado = 0; anioDashboard++; }
+  pintarDetalleMes();
 }
 
-// Detalle del mes elegido: cuántos productos vencen por área (categoría).
+// Detalle del mes elegido: cuántas unidades vencen por área (categoría).
 function pintarDetalleMes() {
-  $('#titulo-detalle-mes').textContent =
-    `Por área — vencen en ${MESES_LARGO[mesSeleccionado]} ${anioDashboard}`;
-  const porCategoria = {};
-  activosDashboard.forEach((p) => {
+  const nombreMes = MESES_LARGO[mesSeleccionado];
+  $('#mes-actual').textContent =
+    `${nombreMes.charAt(0).toUpperCase()}${nombreMes.slice(1)} ${anioDashboard}`;
+
+  const delMes = activosDashboard.filter((p) => {
     const f = parsearFecha(p.fecha_vencimiento);
-    if (f.getFullYear() === anioDashboard && f.getMonth() === mesSeleccionado) {
-      porCategoria[p.categoria] = (porCategoria[p.categoria] || 0) + 1;
-    }
+    return f.getFullYear() === anioDashboard && f.getMonth() === mesSeleccionado;
   });
+
+  const porCategoria = {};
+  let unidades = 0;
+  delMes.forEach((p) => {
+    const n = p.cantidad || 1;
+    porCategoria[p.categoria] = (porCategoria[p.categoria] || 0) + n;
+    unidades += n;
+  });
+
+  $('#resumen-mes').textContent = delMes.length
+    ? `${delMes.length} producto${delMes.length === 1 ? '' : 's'} (${unidades} unidad${unidades === 1 ? '' : 'es'}) vence${delMes.length === 1 ? '' : 'n'} este mes, por área:`
+    : 'Ningún producto vence en este mes. 🎉';
+
   pintarBarras('#detalle-mes', porCategoria);
-  if (!Object.keys(porCategoria).length) {
-    $('#detalle-mes').innerHTML = '<p class="ayuda">Ningún producto vence este mes. 🎉</p>';
-  }
+  if (!delMes.length) $('#detalle-mes').innerHTML = '';
 }
 
 function pintarBarras(contenedor, conteos) {
@@ -598,7 +589,6 @@ async function pintarDashboard() {
     .eq('retirado', false);
   if (errorActivos) { alert('No se pudo cargar el dashboard: ' + errorActivos.message); return; }
   activosDashboard = activos || [];
-  pintarMeses();
   pintarDetalleMes();
 
   // Productos ya retirados (estadísticas de retiros, contando unidades)
@@ -746,16 +736,8 @@ function conectarEventos() {
     t.addEventListener('click', () => mostrarVista(t.dataset.tab));
   });
 
-  $('#anio-prev').addEventListener('click', () => {
-    anioDashboard--;
-    pintarMeses();
-    pintarDetalleMes();
-  });
-  $('#anio-next').addEventListener('click', () => {
-    anioDashboard++;
-    pintarMeses();
-    pintarDetalleMes();
-  });
+  $('#mes-prev').addEventListener('click', () => moverMes(-1));
+  $('#mes-next').addEventListener('click', () => moverMes(1));
 
   const selCat = $('#input-categoria');
   CATEGORIAS.forEach((c) => {
