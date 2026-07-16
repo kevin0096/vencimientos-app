@@ -475,7 +475,7 @@ function pintarLista() {
     tarjeta.innerHTML = `
       <img alt="" />
       <div class="info">
-        <div class="nombre"><span class="nombre-texto"></span>${unidades > 1 ? `<span class="cantidad-badge">x${unidades}</span>` : ''}</div>
+        <div class="nombre"><span class="nombre-texto"></span><span class="cantidad-badge">${unidades} und.</span></div>
         <span class="categoria"></span>
         <div class="fecha">Vence: ${formatearFecha(p.fecha_vencimiento)}</div>
         <div class="estado">${texto}</div>
@@ -655,7 +655,7 @@ async function pintarDashboard() {
       </div>
     `;
     item.querySelector('img').src = r.foto || '';
-    item.querySelector('.r-nombre').textContent = (r.cantidad > 1 ? `${r.cantidad} × ` : '') + r.nombre;
+    item.querySelector('.r-nombre').textContent = `${r.cantidad || 1} × ${r.nombre}`;
     item.querySelector('.r-cat').textContent = r.categoria;
     item.querySelector('.quien').textContent = `${r.retirado_por_nombre || ''} — ${fecha}`;
     hist.appendChild(item);
