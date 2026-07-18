@@ -241,6 +241,19 @@ async function guardarProducto() {
 
     if (error) { alert('No se pudo guardar: ' + error.message); return; }
 
+    // Si vino de un escaneo, memoriza el código para futuros escaneos.
+    if (codigoEscaneado) {
+      try {
+        await sb.from('catalogo').upsert({
+          codigo: codigoEscaneado,
+          nombre,
+          categoria,
+          foto: data.foto || fotoPendiente || null,
+        });
+      } catch (_) { /* la tabla catalogo puede no existir aún */ }
+      codigoEscaneado = null;
+    }
+
     await cancelarAlarmas(data.id);
     await programarAlarmas(data);
     fotoPendiente = null;
@@ -435,6 +448,7 @@ function redimensionarFoto(archivo, maxLado = 700) {
 
 // ---------- Escáner de código de barras ----------
 let escaner = null;
+let codigoEscaneado = null; // código pendiente de memorizar al guardar
 
 async function abrirEscaner() {
   $('#modal-escaner').classList.remove('oculto');
@@ -464,20 +478,40 @@ async function cerrarEscaner() {
   $('#modal-escaner').classList.add('oculto');
 }
 
-// Busca el código en Open Food Facts (base pública mundial de productos)
-// y precarga nombre + imagen en el formulario.
+// Al escanear: 1) busca en el catálogo propio de la bodega, 2) en la base
+// pública Open Food Facts, 3) si no está en ninguna, registro manual con foto.
+// El código queda pendiente para memorizarse al guardar (crece el catálogo).
 async function buscarCodigoDeBarras(codigo) {
+  codigoEscaneado = codigo;
+
+  // 1) Catálogo propio (lo que la bodega ya registró antes)
+  try {
+    const { data } = await sb.from('catalogo').select('*').eq('codigo', codigo).limit(1);
+    if (data && data[0]) {
+      abrirFormulario(null, {
+        nombre: data[0].nombre,
+        foto: data[0].foto || null,
+        categoria: data[0].categoria || CATEGORIAS[0],
+        cantidad: 1,
+        anticipacion: 1,
+      });
+      return;
+    }
+  } catch (_) { /* la tabla catalogo puede no existir aún: seguimos */ }
+
+  // 2) Base pública mundial
   try {
     const r = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json?fields=product_name,product_name_es,brands,image_front_url,image_url`,
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json?fields=product_name,product_name_es,generic_name,brands,image_front_url,image_url`,
     );
     const j = await r.json();
     if (j.status === 1 && j.product) {
       const p = j.product;
-      const nombre = [p.product_name_es || p.product_name, p.brands ? `(${p.brands.split(',')[0].trim()})` : '']
+      const base = p.product_name_es || p.product_name || p.generic_name || '';
+      const nombre = [base, p.brands ? `(${p.brands.split(',')[0].trim()})` : '']
         .filter(Boolean).join(' ').trim();
       abrirFormulario(null, {
-        nombre: nombre || '',
+        nombre,
         foto: p.image_front_url || p.image_url || null,
         cantidad: 1,
         categoria: CATEGORIAS[0],
@@ -486,7 +520,10 @@ async function buscarCodigoDeBarras(codigo) {
       return;
     }
   } catch (_) { /* sin internet o API caída: pasar al registro manual */ }
-  alert(`El código ${codigo} no está en la base pública de productos.\nRegístralo manualmente: se abrirá la cámara para tomarle foto.`);
+
+  // 3) No está en ninguna base: registro manual. Al guardarlo, la app aprende
+  // este código y la próxima vez que se escanee saldrá automáticamente.
+  alert(`Producto nuevo (código ${codigo}).\nTómale una foto y complétalo una vez; la app lo recordará para los próximos escaneos.`);
   $('#input-camara').click();
 }
 
@@ -893,6 +930,7 @@ function conectarEventos() {
   $('#btn-cancelar').addEventListener('click', () => {
     fotoPendiente = null;
     productoEditando = null;
+    codigoEscaneado = null;
     $('#modal-form').classList.add('oculto');
   });
 
