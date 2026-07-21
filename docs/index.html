@@ -71,7 +71,12 @@
         <h1>📦 Vencimientos</h1>
         <span id="usuario-actual" class="usuario"></span>
       </div>
-      <button id="btn-logout" class="btn-icono" title="Cerrar sesión">🚪</button>
+      <div class="header-acciones">
+        <button id="btn-campana" class="btn-icono campana" title="Productos por vencer">
+          🔔<span id="campana-contador" class="campana-contador oculto">0</span>
+        </button>
+        <button id="btn-logout" class="btn-icono" title="Cerrar sesión">🚪</button>
+      </div>
     </header>
 
     <nav class="tabs">
@@ -90,6 +95,7 @@
       <input type="search" id="buscador" class="buscador" placeholder="🔍 Buscar producto…" autocomplete="off" />
 
       <div id="filtro-categorias" class="chips"></div>
+      <div id="filtro-proveedores" class="chips chips-proveedor"></div>
 
       <section id="lista-productos" class="lista"></section>
       <p id="mensaje-vacio" class="vacio oculto">
@@ -101,8 +107,20 @@
 
     <!-- ===== Pestaña Dashboard ===== -->
     <main id="vista-dashboard" class="vista oculto">
-      <button id="btn-exportar" class="btn secundario btn-exportar oculto">📥 Descargar historial (Excel/CSV)</button>
-      <h2 class="titulo-seccion">📅 Próximos a vencer</h2>
+      <div class="acciones-reporte">
+        <button id="btn-pdf" class="btn secundario">📄 Reporte PDF del mes</button>
+        <button id="btn-exportar" class="btn secundario oculto">📥 Excel/CSV</button>
+      </div>
+
+      <h2 class="titulo-seccion">💰 Pérdida por vencimiento</h2>
+      <div class="kpis kpis-perdida">
+        <div class="kpi perdida"><span id="kpi-perdida-mes">S/ 0</span><label>Retirado este mes</label></div>
+        <div class="kpi riesgo"><span id="kpi-riesgo">S/ 0</span><label>En riesgo (vence este mes)</label></div>
+      </div>
+      <h3 class="titulo-sub">Pérdida por área (retirado, este mes)</h3>
+      <div id="grafico-perdida" class="barras"></div>
+
+      <h2 class="titulo-seccion separado">📅 Próximos a vencer</h2>
       <div class="selector-mes">
         <button id="mes-prev" class="btn-anio" title="Mes anterior">‹</button>
         <span id="mes-actual"></span>
@@ -157,13 +175,24 @@
         Nombre del producto
         <input type="text" id="input-nombre" placeholder="Ej: Leche Gloria" autocomplete="off" />
       </label>
-      <label>
-        Cantidad de unidades
-        <input type="number" id="input-cantidad" min="1" step="1" value="1" inputmode="numeric" />
-      </label>
+      <div class="fila-doble">
+        <label>
+          Cantidad de unidades
+          <input type="number" id="input-cantidad" min="1" step="1" value="1" inputmode="numeric" />
+        </label>
+        <label>
+          Precio por unidad (S/)
+          <input type="number" id="input-precio" min="0" step="0.10" placeholder="0.00" inputmode="decimal" />
+        </label>
+      </div>
       <label>
         Categoría
         <select id="input-categoria"></select>
+      </label>
+      <label>
+        Proveedor / marca <span class="opcional">(opcional)</span>
+        <input type="text" id="input-proveedor" placeholder="Ej: Coca-Cola, Alicorp…" autocomplete="off" list="lista-proveedores" />
+        <datalist id="lista-proveedores"></datalist>
       </label>
       <label>
         Fecha de vencimiento
@@ -182,6 +211,15 @@
         <button id="btn-cancelar" class="btn secundario">Cancelar</button>
         <button id="btn-guardar" class="btn primario">Guardar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========== Panel: campana de avisos ========== -->
+  <div id="modal-campana" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>🔔 Productos por vencer</h2>
+      <div id="lista-campana" class="lista-campana"></div>
+      <button id="btn-cerrar-campana" class="btn secundario">Cerrar</button>
     </div>
   </div>
 
@@ -205,6 +243,7 @@
 
   <script src="lib/supabase.js"></script>
   <script src="lib/html5-qrcode.min.js"></script>
+  <script src="lib/jspdf.umd.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

@@ -58,6 +58,8 @@ create table public.productos (
   nombre text not null,
   categoria text not null,
   cantidad int not null default 1,
+  precio numeric(10,2) not null default 0,
+  proveedor text not null default '',
   fecha_vencimiento date not null,
   anticipacion int not null default 1,
   foto text,

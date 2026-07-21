@@ -27,6 +27,7 @@ let sb = null;
 let perfilActual = null;
 let modoRegistro = false;
 let filtroCategoria = 'Todos';
+let filtroProveedor = 'Todos';
 let textoBusqueda = '';
 let fotoPendiente = null;
 let productoEditando = null; // null = creando producto nuevo
@@ -204,6 +205,8 @@ async function guardarProducto() {
   const fecha = $('#input-fecha').value;
   const categoria = $('#input-categoria').value;
   const cantidad = Math.max(1, Math.round(Number($('#input-cantidad').value) || 1));
+  const precio = Math.max(0, Number($('#input-precio').value) || 0);
+  const proveedor = $('#input-proveedor').value.trim();
   if (!nombre) { alert('Escribe el nombre del producto.'); return; }
   if (!fecha) { alert('Elige la fecha de vencimiento.'); return; }
 
@@ -214,43 +217,52 @@ async function guardarProducto() {
       nombre,
       categoria,
       cantidad,
+      precio,
+      proveedor,
       fecha_vencimiento: fecha,
       anticipacion: Number($('#input-anticipacion').value),
     };
 
-    let data, error;
-    if (productoEditando) {
-      ({ data, error } = await sb.from('productos').update(payload)
-        .eq('id', productoEditando.id).select().single());
-      // Si la columna "cantidad" aún no existe en la base, reintentar sin ella.
-      if (error && /cantidad/.test(error.message)) {
-        delete payload.cantidad;
-        ({ data, error } = await sb.from('productos').update(payload)
-          .eq('id', productoEditando.id).select().single());
+    // Reintenta quitando columnas que aún no existan en la base (precio/proveedor/cantidad).
+    const guardar = async () => {
+      const p = { ...payload };
+      for (let intento = 0; intento < 4; intento++) {
+        let r;
+        if (productoEditando) {
+          r = await sb.from('productos').update(p).eq('id', productoEditando.id).select().single();
+        } else {
+          r = await sb.from('productos').insert(p).select().single();
+        }
+        if (!r.error) return r;
+        const faltante = ['precio', 'proveedor', 'cantidad'].find((c) => new RegExp(c).test(r.error.message));
+        if (faltante && faltante in p) { delete p[faltante]; continue; }
+        return r;
       }
-    } else {
+      return { error: { message: 'No se pudo guardar tras varios intentos' } };
+    };
+
+    if (!productoEditando) {
       payload.foto = fotoPendiente;
       payload.creado_por = perfilActual.id;
       payload.creado_por_nombre = perfilActual.nombre || perfilActual.email;
-      ({ data, error } = await sb.from('productos').insert(payload).select().single());
-      if (error && /cantidad/.test(error.message)) {
-        delete payload.cantidad;
-        ({ data, error } = await sb.from('productos').insert(payload).select().single());
-      }
     }
 
+    const { data, error } = await guardar();
     if (error) { alert('No se pudo guardar: ' + error.message); return; }
 
     // Si vino de un escaneo, memoriza el código para futuros escaneos.
     if (codigoEscaneado) {
-      try {
-        await sb.from('catalogo').upsert({
-          codigo: codigoEscaneado,
-          nombre,
-          categoria,
-          foto: data.foto || fotoPendiente || null,
-        });
-      } catch (_) { /* la tabla catalogo puede no existir aún */ }
+      const entrada = {
+        codigo: codigoEscaneado,
+        nombre, categoria, proveedor, precio,
+        foto: data.foto || fotoPendiente || null,
+      };
+      let res = await sb.from('catalogo').upsert(entrada);
+      // Reintenta sin precio/proveedor si esas columnas del catálogo no existen.
+      if (res && res.error && /(precio|proveedor)/.test(res.error.message)) {
+        delete entrada.precio; delete entrada.proveedor;
+        await sb.from('catalogo').upsert(entrada);
+      }
       codigoEscaneado = null;
     }
 
@@ -492,6 +504,8 @@ async function buscarCodigoDeBarras(codigo) {
         nombre: data[0].nombre,
         foto: data[0].foto || null,
         categoria: data[0].categoria || CATEGORIAS[0],
+        proveedor: data[0].proveedor || '',
+        precio: data[0].precio || 0,
         cantidad: 1,
         anticipacion: 1,
       });
@@ -554,6 +568,31 @@ function pintarChips() {
     });
     cont.appendChild(chip);
   });
+
+  // Chips de proveedor (solo si hay productos con proveedor registrado)
+  const contProv = $('#filtro-proveedores');
+  contProv.innerHTML = '';
+  const proveedores = [...new Set(productosCache.map((p) => (p.proveedor || '').trim()).filter(Boolean))].sort();
+  if (proveedores.length) {
+    if (!['Todos', ...proveedores].includes(filtroProveedor)) filtroProveedor = 'Todos';
+    ['Todos', ...proveedores].forEach((prov) => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (filtroProveedor === prov ? ' activa' : '');
+      chip.textContent = prov === 'Todos' ? '🏷️ Todos' : prov;
+      chip.addEventListener('click', () => {
+        filtroProveedor = prov;
+        pintarChips();
+        pintarLista();
+      });
+      contProv.appendChild(chip);
+    });
+  } else {
+    filtroProveedor = 'Todos';
+  }
+
+  // Autocompletado de proveedores en el formulario
+  const dl = $('#lista-proveedores');
+  if (dl) dl.innerHTML = proveedores.map((p) => `<option value="${p.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 function normalizar(t) {
@@ -564,6 +603,9 @@ function pintarLista() {
   let productos = filtroCategoria === 'Todos'
     ? productosCache
     : productosCache.filter((p) => p.categoria === filtroCategoria);
+  if (filtroProveedor !== 'Todos') {
+    productos = productos.filter((p) => (p.proveedor || '').trim() === filtroProveedor);
+  }
   if (textoBusqueda) {
     productos = productos.filter((p) => normalizar(p.nombre).includes(normalizar(textoBusqueda)));
   }
@@ -621,6 +663,55 @@ function pintarLista() {
     tarjeta.querySelector('.btn-borrar').addEventListener('click', () => eliminarProducto(p));
     lista.appendChild(tarjeta);
   }
+
+  actualizarCampana();
+}
+
+// ---------- Campana de avisos ----------
+// Junta los productos vencidos o que vencen en los próximos 7 días.
+function productosDeCampana() {
+  return productosCache
+    .filter((p) => diasRestantes(p.fecha_vencimiento) <= 7)
+    .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento));
+}
+
+function actualizarCampana() {
+  const n = productosDeCampana().length;
+  const badge = $('#campana-contador');
+  badge.textContent = n > 9 ? '9+' : n;
+  badge.classList.toggle('oculto', n === 0);
+}
+
+function abrirCampana() {
+  const items = productosDeCampana();
+  const cont = $('#lista-campana');
+  cont.innerHTML = '';
+  if (!items.length) {
+    cont.innerHTML = '<p class="ayuda">✅ Nada por vencer en los próximos 7 días.</p>';
+  }
+  for (const p of items) {
+    const dias = diasRestantes(p.fecha_vencimiento);
+    let clase = 'cm-semana', texto;
+    if (dias < 0) { clase = 'cm-vencido'; texto = `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}`; }
+    else if (dias === 0) { clase = 'cm-hoy'; texto = '¡Vence HOY!'; }
+    else if (dias === 1) { clase = 'cm-manana'; texto = 'Vence mañana'; }
+    else texto = `Vence en ${dias} días`;
+
+    const item = document.createElement('div');
+    item.className = 'campana-item';
+    item.innerHTML = `
+      <img alt="" />
+      <div class="cm-info">
+        <div class="cm-nombre"></div>
+        <div class="cm-estado ${clase}"></div>
+      </div>
+    `;
+    item.querySelector('img').src = p.foto || '';
+    item.querySelector('.cm-nombre').textContent = `${p.cantidad || 1} × ${p.nombre}`;
+    item.querySelector('.cm-estado').textContent = `${texto} · ${formatearFecha(p.fecha_vencimiento)}`;
+    cont.appendChild(item);
+  }
+  $('#modal-campana').classList.remove('oculto');
 }
 
 // producto = editar ese producto; plantilla = crear uno nuevo con datos precargados
@@ -633,8 +724,10 @@ function abrirFormulario(producto = null, plantilla = null) {
   $('#foto-preview').src = (producto ? producto.foto : fotoPendiente) || '';
   $('#input-nombre').value = base ? base.nombre : '';
   $('#input-cantidad').value = base ? (base.cantidad || 1) : 1;
+  $('#input-precio').value = base && base.precio ? base.precio : '';
+  $('#input-proveedor').value = base ? (base.proveedor || '') : '';
   $('#input-categoria').value = base ? base.categoria : CATEGORIAS[0];
-  $('#input-anticipacion').value = base ? String(base.anticipacion) : '1';
+  $('#input-anticipacion').value = base ? String(base.anticipacion || 1) : '1';
   const manana = new Date(Date.now() + 86400000);
   $('#input-fecha').value = producto ? producto.fecha_vencimiento : fechaLocalISO(manana);
   $('#input-fecha').min = producto ? '' : fechaLocalISO(new Date());
@@ -686,12 +779,12 @@ function pintarDetalleMes() {
   if (!delMes.length) $('#detalle-mes').innerHTML = '';
 }
 
-function pintarBarras(contenedor, conteos) {
+function pintarBarras(contenedor, conteos, formato = null) {
   const cont = $(contenedor);
   cont.innerHTML = '';
   const entradas = Object.entries(conteos).sort((a, b) => b[1] - a[1]);
   if (!entradas.length) {
-    cont.innerHTML = '<p class="ayuda">Todavía no hay retiros registrados.</p>';
+    cont.innerHTML = '<p class="ayuda">Todavía no hay datos.</p>';
     return;
   }
   const max = entradas[0][1];
@@ -699,10 +792,11 @@ function pintarBarras(contenedor, conteos) {
     const fila = document.createElement('div');
     fila.className = 'barra-fila';
     fila.innerHTML = `
-      <div class="barra-info"><span class="etiqueta"></span><span class="valor">${valor}</span></div>
+      <div class="barra-info"><span class="etiqueta"></span><span class="valor"></span></div>
       <div class="barra-fondo"><div class="barra-relleno" style="width:${Math.round((valor / max) * 100)}%"></div></div>
     `;
     fila.querySelector('.etiqueta').textContent = etiqueta;
+    fila.querySelector('.valor').textContent = formato ? formato(valor) : valor;
     cont.appendChild(fila);
   }
 }
@@ -752,7 +846,38 @@ async function pintarDashboard() {
   pintarBarras('#grafico-categorias', porCategoria);
   pintarBarras('#grafico-usuarios', porUsuario);
 
+  // ----- Pérdida en S/ -----
+  const valor = (r) => (r.precio || 0) * (r.cantidad || 1);
+  const retiradosMes = retiros.filter((r) => en(r, inicioMes));
+  const perdidaMes = retiradosMes.reduce((s, r) => s + valor(r), 0);
+
+  // "En riesgo": productos activos que vencen dentro del mes calendario actual.
+  const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
+  const enRiesgo = activosDashboard
+    .filter((p) => {
+      const f = parsearFecha(p.fecha_vencimiento);
+      return f >= inicioHoy && f <= finMes;
+    })
+    .reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
+
+  $('#kpi-perdida-mes').textContent = soles(perdidaMes);
+  $('#kpi-riesgo').textContent = soles(enRiesgo);
+
+  const perdidaPorCategoria = {};
+  retiradosMes.forEach((r) => {
+    const v = valor(r);
+    if (v > 0) perdidaPorCategoria[r.categoria] = (perdidaPorCategoria[r.categoria] || 0) + v;
+  });
+  pintarBarras('#grafico-perdida', perdidaPorCategoria, soles);
+  if (!Object.keys(perdidaPorCategoria).length) {
+    $('#grafico-perdida').innerHTML = '<p class="ayuda">Aún no hay pérdidas con precio registrado este mes. Agrega el precio a los productos para ver el monto en S/.</p>';
+  }
+
   pintarHistorial();
+}
+
+function soles(n) {
+  return 'S/ ' + (Math.round(n * 100) / 100).toLocaleString('es-PE', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 // Retiros dentro del rango de fechas elegido (o todos si no hay filtro).
@@ -822,11 +947,14 @@ function pintarHistorial() {
 function exportarRetiros() {
   const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
   const filas = [
-    ['Producto', 'Cantidad', 'Categoría', 'Fecha de vencimiento', 'Retirado por', 'Fecha de retiro'],
+    ['Producto', 'Cantidad', 'Precio unit. (S/)', 'Valor (S/)', 'Categoría', 'Proveedor', 'Fecha de vencimiento', 'Retirado por', 'Fecha de retiro'],
     ...retirosFiltrados().map((r) => [
       r.nombre,
       r.cantidad || 1,
+      r.precio || 0,
+      (r.precio || 0) * (r.cantidad || 1),
       r.categoria,
+      r.proveedor || '',
       r.fecha_vencimiento,
       r.retirado_por_nombre || '',
       new Date(r.retirado_en).toLocaleString('es-PE'),
@@ -838,6 +966,110 @@ function exportarRetiros() {
   a.href = url;
   a.download = `retiros-${fechaLocalISO(new Date())}.csv`;
   a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Genera un reporte PDF del mes visible: resumen, pérdidas por área y lista de retiros.
+function generarReportePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const margen = 40;
+  let y = margen;
+
+  const nombreMes = MESES_LARGO[mesSeleccionado];
+  const tituloMes = `${nombreMes.charAt(0).toUpperCase()}${nombreMes.slice(1)} ${anioDashboard}`;
+
+  // Encabezado
+  doc.setFillColor(15, 118, 110);
+  doc.rect(0, 0, ancho, 70, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Control de Vencimientos', margen, 34);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text(`Reporte de ${tituloMes}`, margen, 52);
+  doc.setFontSize(9);
+  doc.text(`Generado: ${new Date().toLocaleString('es-PE')}`, ancho - margen, 52, { align: 'right' });
+  y = 96;
+  doc.setTextColor(30, 30, 30);
+
+  // Retiros del mes visible
+  const inicio = new Date(anioDashboard, mesSeleccionado, 1);
+  const fin = new Date(anioDashboard, mesSeleccionado + 1, 0, 23, 59, 59);
+  const retirosMes = retirosCache.filter((r) => {
+    const f = new Date(r.retirado_en);
+    return f >= inicio && f <= fin;
+  });
+  const unidadesMes = retirosMes.reduce((s, r) => s + (r.cantidad || 1), 0);
+  const perdidaMes = retirosMes.reduce((s, r) => s + (r.precio || 0) * (r.cantidad || 1), 0);
+
+  // Resumen
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('Resumen del mes', margen, y); y += 20;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text(`Productos retirados: ${retirosMes.length}  (${unidadesMes} unidades)`, margen, y); y += 16;
+  doc.text(`Pérdida por vencimiento: ${soles(perdidaMes)}`, margen, y); y += 26;
+
+  // Pérdida por área
+  const porArea = {};
+  retirosMes.forEach((r) => {
+    const v = (r.precio || 0) * (r.cantidad || 1);
+    porArea[r.categoria] = (porArea[r.categoria] || 0) + v;
+  });
+  const areas = Object.entries(porArea).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (areas.length) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Pérdida por área', margen, y); y += 18;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    for (const [area, v] of areas) {
+      doc.text(`• ${area}`, margen, y);
+      doc.text(soles(v), ancho - margen, y, { align: 'right' });
+      y += 16;
+    }
+    y += 12;
+  }
+
+  // Lista de retiros
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+  doc.text('Detalle de retiros', margen, y); y += 18;
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
+  doc.text('PRODUCTO', margen, y);
+  doc.text('CANT.', ancho - 220, y, { align: 'right' });
+  doc.text('VALOR', ancho - 140, y, { align: 'right' });
+  doc.text('FECHA', ancho - margen, y, { align: 'right' });
+  y += 6;
+  doc.setDrawColor(220, 220, 220);
+  doc.line(margen, y, ancho - margen, y); y += 14;
+  doc.setTextColor(30, 30, 30);
+  doc.setFont('helvetica', 'normal');
+
+  if (!retirosMes.length) {
+    doc.text('No hubo retiros registrados en este mes.', margen, y);
+  }
+  for (const r of retirosMes) {
+    if (y > doc.internal.pageSize.getHeight() - margen) { doc.addPage(); y = margen; }
+    const nombre = doc.splitTextToSize(r.nombre, ancho - 320)[0];
+    doc.text(nombre, margen, y);
+    doc.text(String(r.cantidad || 1), ancho - 220, y, { align: 'right' });
+    doc.text(soles((r.precio || 0) * (r.cantidad || 1)), ancho - 140, y, { align: 'right' });
+    doc.text(new Date(r.retirado_en).toLocaleDateString('es-PE'), ancho - margen, y, { align: 'right' });
+    y += 15;
+  }
+
+  // Descarga manual (evita un bug de doc.save en esta versión de jsPDF).
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte-${nombreMes}-${anioDashboard}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -943,6 +1175,10 @@ function conectarEventos() {
 
   $('#btn-escanear').addEventListener('click', abrirEscaner);
   $('#btn-cerrar-escaner').addEventListener('click', cerrarEscaner);
+
+  $('#btn-campana').addEventListener('click', abrirCampana);
+  $('#btn-cerrar-campana').addEventListener('click', () => $('#modal-campana').classList.add('oculto'));
+  $('#btn-pdf').addEventListener('click', generarReportePDF);
 
   $('#filtro-desde').addEventListener('change', (e) => { filtroDesde = e.target.value; pintarHistorial(); });
   $('#filtro-hasta').addEventListener('change', (e) => { filtroHasta = e.target.value; pintarHistorial(); });

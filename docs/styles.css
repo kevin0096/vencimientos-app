@@ -183,6 +183,50 @@ button { font-family: inherit; }
 
 .btn-icono:hover { background: var(--superficie-2); }
 
+.header-acciones { display: flex; gap: 8px; align-items: center; }
+
+.campana { position: relative; }
+
+.campana-contador {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ef4444;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 800;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Panel de la campana */
+.lista-campana { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+
+.campana-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+}
+
+.campana-item img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--superficie-2); border: 1px solid var(--borde); flex-shrink: 0; }
+.campana-item .cm-info { flex: 1; min-width: 0; }
+.campana-item .cm-nombre { font-weight: 700; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campana-item .cm-estado { font-size: .78rem; font-weight: 700; margin-top: 2px; }
+.cm-vencido { color: var(--rojo); }
+.cm-hoy { color: var(--rojo); }
+.cm-manana { color: var(--naranja); }
+.cm-semana { color: var(--amarillo); }
+
 /* ---------- Pestañas (control segmentado neutro) ---------- */
 .tabs {
   background: var(--superficie);
@@ -449,6 +493,21 @@ button { font-family: inherit; }
 .ayuda { color: var(--tinta-3); font-size: .86rem; margin-bottom: 12px; }
 
 .btn-exportar { width: 100%; margin-bottom: 16px; }
+
+.acciones-reporte { display: flex; gap: 8px; margin-bottom: 16px; }
+.acciones-reporte .btn { flex: 1; }
+
+.kpis-perdida { grid-template-columns: repeat(2, 1fr); margin-bottom: 6px; }
+.kpi.perdida span { color: var(--rojo); }
+.kpi.riesgo span { color: var(--naranja); }
+
+.chips-proveedor { margin-top: -4px; }
+.chips-proveedor:empty { display: none; }
+
+.fila-doble { display: flex; gap: 10px; }
+.fila-doble label { flex: 1; }
+
+.opcional { font-weight: 400; color: var(--tinta-3); font-size: .82em; }
 
 .selector-mes {
   display: flex;
