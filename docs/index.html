@@ -11,13 +11,36 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Íconos de línea (estilo Lucide, licencia ISC) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <defs>
+      <g id="i-box"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></g>
+      <g id="i-bell"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></g>
+      <g id="i-logout"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></g>
+      <g id="i-list"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></g>
+      <g id="i-chart"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></g>
+      <g id="i-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></g>
+      <g id="i-camera"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></g>
+      <g id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></g>
+      <g id="i-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></g>
+      <g id="i-clock"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></g>
+      <g id="i-check"><path d="M20 6 9 17l-5-5"/></g>
+      <g id="i-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></g>
+      <g id="i-trash"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g>
+      <g id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></g>
+      <g id="i-undo"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></g>
+      <g id="i-left"><path d="m15 18-6-6 6-6"/></g>
+      <g id="i-right"><path d="m9 18 6-6-6-6"/></g>
+      <g id="i-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></g>
+    </defs>
+  </svg>
 
   <!-- ========== Pantalla: falta configurar la nube ========== -->
   <div id="pantalla-config" class="pantalla-centrada oculto">
     <div class="caja-login">
-      <h1>📦 Control de Vencimientos</h1>
+      <h1 class="titulo-marca"><span class="marca"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg></span>Control de Vencimientos</h1>
       <p class="aviso-config">
-        ⚙️ Falta configurar la conexión a la nube.<br /><br />
+        Falta configurar la conexión a la nube.<br /><br />
         Hay que crear el proyecto gratuito en Supabase y pegar la URL y la
         clave en el archivo <code>config.js</code>. Revisa la guía
         <strong>CONFIGURAR-NUBE.md</strong>.
@@ -28,7 +51,7 @@
   <!-- ========== Pantalla: login / registro ========== -->
   <div id="pantalla-login" class="pantalla-centrada oculto">
     <div class="caja-login">
-      <h1>📦 Control de Vencimientos</h1>
+      <h1 class="titulo-marca"><span class="marca"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg></span>Control de Vencimientos</h1>
       <p class="subtitulo" id="login-subtitulo">Inicia sesión para continuar</p>
 
       <label id="campo-nombre" class="oculto">
@@ -54,7 +77,8 @@
   <!-- ========== Pantalla: esperando aprobación del admin ========== -->
   <div id="pantalla-espera" class="pantalla-centrada oculto">
     <div class="caja-login">
-      <h1>⏳</h1>
+      <span class="icono-espera"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg></span>
+      <h1>Cuenta pendiente de aprobación</h1>
       <p class="subtitulo">
         Tu cuenta fue creada, pero <strong>todavía no tiene acceso</strong>.<br /><br />
         Pídele al administrador que apruebe tu usuario y vuelve a intentar.
@@ -68,21 +92,21 @@
   <div id="pantalla-app" class="oculto">
     <header class="app-header">
       <div>
-        <h1>📦 Vencimientos</h1>
+        <h1 class="titulo-marca"><span class="marca"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg></span><span>Control de Vencimientos<small>Tienda OXXO El Polo</small></span></h1>
         <span id="usuario-actual" class="usuario"></span>
       </div>
       <div class="header-acciones">
         <button id="btn-campana" class="btn-icono campana" title="Productos por vencer">
-          🔔<span id="campana-contador" class="campana-contador oculto">0</span>
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span id="campana-contador" class="campana-contador oculto">0</span>
         </button>
-        <button id="btn-logout" class="btn-icono" title="Cerrar sesión">🚪</button>
+        <button id="btn-logout" class="btn-icono" title="Cerrar sesión"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-logout"/></svg></button>
       </div>
     </header>
 
     <nav class="tabs">
-      <button class="tab activa" data-tab="productos">🛒 Productos</button>
-      <button class="tab" data-tab="dashboard">📊 Dashboard</button>
-      <button class="tab oculto" data-tab="admin" id="tab-admin">👥 Usuarios</button>
+      <button class="tab activa" data-tab="productos"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"/></svg>Productos</button>
+      <button class="tab" data-tab="dashboard"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chart"/></svg>Dashboard</button>
+      <button class="tab oculto" data-tab="admin" id="tab-admin"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-users"/></svg>Usuarios</button>
     </nav>
 
     <!-- ===== Pestaña Productos ===== -->
@@ -92,7 +116,7 @@
         <div id="resumen-porvencer" class="resumen-item porvencer oculto"></div>
       </section>
 
-      <input type="search" id="buscador" class="buscador" placeholder="🔍 Buscar producto…" autocomplete="off" />
+      <input type="search" id="buscador" class="buscador" placeholder="Buscar producto por nombre" autocomplete="off" />
 
       <div id="filtro-categorias" class="chips"></div>
       <div id="filtro-proveedores" class="chips chips-proveedor"></div>
@@ -100,7 +124,7 @@
       <section id="lista-productos" class="lista"></section>
       <p id="mensaje-vacio" class="vacio oculto">
         No hay productos registrados.<br />
-        Toca el botón <strong>+ 📷</strong> para tomar la foto del primero.
+        Usa el botón <strong>Registrar</strong> para tomar la foto del primero.
       </p>
       <p id="mensaje-cargando" class="vacio">Cargando productos…</p>
     </main>
@@ -108,11 +132,11 @@
     <!-- ===== Pestaña Dashboard ===== -->
     <main id="vista-dashboard" class="vista oculto">
       <div class="acciones-reporte">
-        <button id="btn-pdf" class="btn secundario">📄 Reporte PDF del mes</button>
-        <button id="btn-exportar" class="btn secundario oculto">📥 Excel/CSV</button>
+        <button id="btn-pdf" class="btn secundario"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-file"/></svg>Reporte PDF del mes</button>
+        <button id="btn-exportar" class="btn secundario oculto"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-download"/></svg>Excel / CSV</button>
       </div>
 
-      <h2 class="titulo-seccion">💰 Pérdida por vencimiento</h2>
+      <h2 class="titulo-seccion">Pérdida por vencimiento</h2>
       <div class="kpis kpis-perdida">
         <div class="kpi perdida"><span id="kpi-perdida-mes">S/ 0</span><label>Retirado este mes</label></div>
         <div class="kpi riesgo"><span id="kpi-riesgo">S/ 0</span><label>En riesgo (vence este mes)</label></div>
@@ -120,16 +144,16 @@
       <h3 class="titulo-sub">Pérdida por área (retirado, este mes)</h3>
       <div id="grafico-perdida" class="barras"></div>
 
-      <h2 class="titulo-seccion separado">📅 Próximos a vencer</h2>
+      <h2 class="titulo-seccion separado">Próximos a vencer</h2>
       <div class="selector-mes">
-        <button id="mes-prev" class="btn-anio" title="Mes anterior">‹</button>
+        <button id="mes-prev" class="btn-anio" title="Mes anterior"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-left"/></svg></button>
         <span id="mes-actual"></span>
-        <button id="mes-next" class="btn-anio" title="Mes siguiente">›</button>
+        <button id="mes-next" class="btn-anio" title="Mes siguiente"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg></button>
       </div>
       <p id="resumen-mes" class="resumen-mes"></p>
       <div id="detalle-mes" class="barras"></div>
 
-      <h2 class="titulo-seccion separado">📊 Productos retirados</h2>
+      <h2 class="titulo-seccion separado">Productos retirados</h2>
       <div class="kpis">
         <div class="kpi"><span id="kpi-hoy">0</span><label>Hoy</label></div>
         <div class="kpi"><span id="kpi-semana">0</span><label>Últimos 7 días</label></div>
@@ -154,7 +178,7 @@
 
     <!-- ===== Pestaña Admin (usuarios) ===== -->
     <main id="vista-admin" class="vista oculto">
-      <h2 class="titulo-seccion">👥 Gestión de usuarios</h2>
+      <h2 class="titulo-seccion">Gestión de usuarios</h2>
       <p class="ayuda">Solo los usuarios con acceso aprobado pueden entrar a la app.</p>
       <div id="lista-usuarios" class="lista"></div>
     </main>
@@ -162,7 +186,7 @@
     <button id="btn-escanear" class="fab fab-escaner" title="Escanear código de barras">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 6V3h3M22 6V3h-3M2 18v3h3M22 18v3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 8v8M9.5 8v8M12.5 8v8M15 8v8M18 8v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
-    <button id="btn-agregar" class="fab" title="Agregar producto">+ 📷</button>
+    <button id="btn-agregar" class="fab" title="Registrar producto"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg>Registrar</button>
     <input type="file" id="input-camara" accept="image/*" capture="environment" hidden />
   </div>
 
@@ -217,7 +241,7 @@
   <!-- ========== Panel: campana de avisos ========== -->
   <div id="modal-campana" class="modal oculto">
     <div class="modal-contenido">
-      <h2>🔔 Productos por vencer</h2>
+      <h2>Productos por vencer (7 días)</h2>
       <div id="lista-campana" class="lista-campana"></div>
       <button id="btn-cerrar-campana" class="btn secundario">Cerrar</button>
     </div>

@@ -344,7 +344,7 @@ function construirNotificaciones(p) {
   if (fechaAviso > ahora) {
     lista.push({
       id: idAviso,
-      title: '⚠️ Producto por vencer',
+      title: 'Producto por vencer',
       body: `"${etiqueta}" (${p.categoria}) vence ${p.anticipacion === 1 ? 'MAÑANA' : `en ${p.anticipacion} días`} (${formatearFecha(p.fecha_vencimiento)}). ¡Revísalo!`,
       schedule: { at: fechaAviso, allowWhileIdle: true },
     });
@@ -352,7 +352,7 @@ function construirNotificaciones(p) {
   if (fechaVence > ahora) {
     lista.push({
       id: idVence,
-      title: '🚨 ¡Producto vence HOY!',
+      title: 'Producto vence hoy',
       body: `"${etiqueta}" (${p.categoria}) vence hoy. Retíralo del stock.`,
       schedule: { at: fechaVence, allowWhileIdle: true },
     });
@@ -404,7 +404,7 @@ async function reprogramarTodasLasAlarmas() {
         + (vencenManana.length > 4 ? '…' : '');
       lote.push({
         id: 2000000001 + d, // ids reservados para el resumen diario
-        title: `🔔 Mañana vence${vencenManana.length === 1 ? '' : 'n'} ${vencenManana.length} producto${vencenManana.length === 1 ? '' : 's'} (${unidades} und.)`,
+        title: `Mañana vence${vencenManana.length === 1 ? '' : 'n'} ${vencenManana.length} producto${vencenManana.length === 1 ? '' : 's'} (${unidades} und.)`,
         body: `${nombres}. Revísalos y retíralos a tiempo.`,
         schedule: { at: dia, allowWhileIdle: true },
       });
@@ -429,13 +429,13 @@ async function avisoAlAbrir() {
     await LocalNotifications.schedule({
       notifications: [{
         id: 1,
-        title: '📦 Revisa tus productos',
+        title: 'Revisa tus productos',
         body: cuerpo,
         schedule: { at: new Date(Date.now() + 3000) },
       }],
     });
   } else if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('📦 Revisa tus productos', { body: cuerpo });
+    new Notification('Revisa tus productos', { body: cuerpo });
   }
 }
 
@@ -478,7 +478,7 @@ async function abrirEscaner() {
     );
   } catch (e) {
     $('#estado-escaner').textContent =
-      '⚠️ No se pudo abrir la cámara. Revisa que la app tenga el permiso de cámara. ' + (e.message || e);
+      'No se pudo abrir la cámara. Revisa que la app tenga el permiso de cámara. ' + (e.message || e);
   }
 }
 
@@ -543,11 +543,11 @@ async function buscarCodigoDeBarras(codigo) {
 
 // ---------- Vista: productos ----------
 function estadoProducto(dias) {
-  if (dias < 0) return { clase: 'estado-vencido', texto: `❌ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}` };
-  if (dias === 0) return { clase: 'estado-hoy', texto: '🚨 ¡Vence HOY!' };
-  if (dias === 1) return { clase: 'estado-pronto', texto: '⚠️ Vence MAÑANA' };
-  if (dias <= 7) return { clase: 'estado-cerca', texto: `⏳ Vence en ${dias} días` };
-  return { clase: 'estado-ok', texto: `✅ Vence en ${dias} días` };
+  if (dias < 0) return { clase: 'estado-vencido', texto: `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}` };
+  if (dias === 0) return { clase: 'estado-hoy', texto: 'Vence hoy' };
+  if (dias === 1) return { clase: 'estado-pronto', texto: 'Vence mañana' };
+  if (dias <= 7) return { clase: 'estado-cerca', texto: `Vence en ${dias} días` };
+  return { clase: 'estado-ok', texto: `Vence en ${dias} días` };
 }
 
 function pintarChips() {
@@ -578,7 +578,7 @@ function pintarChips() {
     ['Todos', ...proveedores].forEach((prov) => {
       const chip = document.createElement('button');
       chip.className = 'chip' + (filtroProveedor === prov ? ' activa' : '');
-      chip.textContent = prov === 'Todos' ? '🏷️ Todos' : prov;
+      chip.textContent = prov === 'Todos' ? 'Todos los proveedores' : prov;
       chip.addEventListener('click', () => {
         filtroProveedor = prov;
         pintarChips();
@@ -623,8 +623,8 @@ function pintarLista() {
   $('#resumen').classList.toggle('oculto', !vencidos && !porVencer);
   $('#resumen-vencidos').classList.toggle('oculto', !vencidos);
   $('#resumen-porvencer').classList.toggle('oculto', !porVencer);
-  if (vencidos) $('#resumen-vencidos').textContent = `❌ ${vencidos} producto${vencidos === 1 ? '' : 's'} vencido${vencidos === 1 ? '' : 's'} — retíralo${vencidos === 1 ? '' : 's'}`;
-  if (porVencer) $('#resumen-porvencer').textContent = `⚠️ ${porVencer} producto${porVencer === 1 ? '' : 's'} vence${porVencer === 1 ? '' : 'n'} hoy o mañana`;
+  if (vencidos) $('#resumen-vencidos').textContent = `${vencidos} producto${vencidos === 1 ? '' : 's'} vencido${vencidos === 1 ? '' : 's'} — retíralo${vencidos === 1 ? '' : 's'}`;
+  if (porVencer) $('#resumen-porvencer').textContent = `${porVencer} producto${porVencer === 1 ? '' : 's'} vence${porVencer === 1 ? '' : 'n'} hoy o mañana`;
 
   for (const p of productos) {
     const dias = diasRestantes(p.fecha_vencimiento);
@@ -641,11 +641,11 @@ function pintarLista() {
         <div class="estado">${texto}</div>
       </div>
       <div class="acciones">
-        <button class="btn-retirar">✅ Retirar</button>
+        <button class="btn-retirar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>Retirar</button>
         <div class="fila-iconos">
-          <button class="btn-duplicar" title="Nuevo lote (misma foto y nombre, otra fecha)">📋</button>
-          <button class="btn-editar" title="Editar">✏️</button>
-          <button class="btn-borrar" title="Eliminar">🗑️</button>
+          <button class="btn-duplicar" title="Nuevo lote (misma foto y nombre, otra fecha)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-copy"/></svg></button>
+          <button class="btn-editar" title="Editar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg></button>
+          <button class="btn-borrar" title="Eliminar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trash"/></svg></button>
         </div>
       </div>
     `;
@@ -687,7 +687,7 @@ function abrirCampana() {
   const cont = $('#lista-campana');
   cont.innerHTML = '';
   if (!items.length) {
-    cont.innerHTML = '<p class="ayuda">✅ Nada por vencer en los próximos 7 días.</p>';
+    cont.innerHTML = '<p class="ayuda">No hay productos por vencer en los próximos 7 días.</p>';
   }
   for (const p of items) {
     const dias = diasRestantes(p.fecha_vencimiento);
@@ -773,7 +773,7 @@ function pintarDetalleMes() {
 
   $('#resumen-mes').textContent = delMes.length
     ? `${delMes.length} producto${delMes.length === 1 ? '' : 's'} (${unidades} unidad${unidades === 1 ? '' : 'es'}) vence${delMes.length === 1 ? '' : 'n'} este mes, por área:`
-    : 'Ningún producto vence en este mes. 🎉';
+    : 'Ningún producto vence en este mes.';
 
   pintarBarras('#detalle-mes', porCategoria);
   if (!delMes.length) $('#detalle-mes').innerHTML = '';
@@ -932,7 +932,7 @@ function pintarHistorial() {
         <div><strong class="r-nombre"></strong> · <span class="r-cat"></span></div>
         <div class="quien"></div>
       </div>
-      <button class="btn-deshacer" title="Devolver a la lista">↩️</button>
+      <button class="btn-deshacer" title="Devolver a la lista"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-undo"/></svg></button>
     `;
     item.querySelector('img').src = r.foto || '';
     item.querySelector('.r-nombre').textContent = `${r.cantidad || 1} × ${r.nombre}`;
