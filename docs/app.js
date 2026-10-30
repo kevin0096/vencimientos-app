@@ -61,6 +61,17 @@ function diasRestantes(fechaIso) {
   return Math.round((parsearFecha(fechaIso) - hoySinHora()) / 86400000);
 }
 
+const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+// Fecha corta y específica, ej. "jue 30/10"
+function fechaCorta(iso) {
+  const d = parsearFecha(iso);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${DIAS_SEMANA[d.getDay()]} ${p(d.getDate())}/${p(d.getMonth() + 1)}`;
+}
+
+function plural(n, uno, varios) { return n === 1 ? uno : varios; }
+
 function formatearFecha(iso) {
   return parsearFecha(iso).toLocaleDateString('es-PE', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -344,16 +355,16 @@ function construirNotificaciones(p) {
   if (fechaAviso > ahora) {
     lista.push({
       id: idAviso,
-      title: 'Producto por vencer',
-      body: `"${etiqueta}" (${p.categoria}) vence ${p.anticipacion === 1 ? 'MAÑANA' : `en ${p.anticipacion} días`} (${formatearFecha(p.fecha_vencimiento)}). ¡Revísalo!`,
+      title: `Por vencer el ${fechaCorta(p.fecha_vencimiento)}: ${p.nombre}`,
+      body: `${etiqueta} (${p.categoria}) vence el ${formatearFecha(p.fecha_vencimiento)}. Revísalo y retíralo a tiempo.`,
       schedule: { at: fechaAviso, allowWhileIdle: true },
     });
   }
   if (fechaVence > ahora) {
     lista.push({
       id: idVence,
-      title: 'Producto vence hoy',
-      body: `"${etiqueta}" (${p.categoria}) vence hoy. Retíralo del stock.`,
+      title: `Vence el ${fechaCorta(p.fecha_vencimiento)}: ${p.nombre}`,
+      body: `${etiqueta} (${p.categoria}) vence el ${formatearFecha(p.fecha_vencimiento)}. Retíralo del anaquel.`,
       schedule: { at: fechaVence, allowWhileIdle: true },
     });
   }
@@ -404,7 +415,7 @@ async function reprogramarTodasLasAlarmas() {
         + (vencenManana.length > 4 ? '…' : '');
       lote.push({
         id: 2000000001 + d, // ids reservados para el resumen diario
-        title: `Mañana vence${vencenManana.length === 1 ? '' : 'n'} ${vencenManana.length} producto${vencenManana.length === 1 ? '' : 's'} (${unidades} und.)`,
+        title: `${vencenManana.length} ${plural(vencenManana.length, 'producto vence', 'productos vencen')} el ${fechaCorta(fechaManana)} (${unidades} und.)`,
         body: `${nombres}. Revísalos y retíralos a tiempo.`,
         schedule: { at: dia, allowWhileIdle: true },
       });
@@ -421,9 +432,9 @@ async function avisoAlAbrir() {
   if (!urgentes.length) return;
   const cuerpo = urgentes.slice(0, 5).map((p) => {
     const d = diasRestantes(p.fecha_vencimiento);
-    if (d < 0) return `"${p.nombre}" ya venció`;
-    if (d === 0) return `"${p.nombre}" vence HOY`;
-    return `"${p.nombre}" vence mañana`;
+    return d < 0
+      ? `${p.nombre}: venció el ${fechaCorta(p.fecha_vencimiento)}`
+      : `${p.nombre}: vence el ${fechaCorta(p.fecha_vencimiento)}`;
   }).join('. ');
   if (esNativo) {
     await LocalNotifications.schedule({
@@ -543,11 +554,11 @@ async function buscarCodigoDeBarras(codigo) {
 
 // ---------- Vista: productos ----------
 function estadoProducto(dias) {
-  if (dias < 0) return { clase: 'estado-vencido', texto: `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}` };
-  if (dias === 0) return { clase: 'estado-hoy', texto: 'Vence hoy' };
-  if (dias === 1) return { clase: 'estado-pronto', texto: 'Vence mañana' };
-  if (dias <= 7) return { clase: 'estado-cerca', texto: `Vence en ${dias} días` };
-  return { clase: 'estado-ok', texto: `Vence en ${dias} días` };
+  if (dias < 0) return { clase: 'estado-vencido', texto: `Vencido hace ${-dias} ${plural(-dias, 'día', 'días')}` };
+  if (dias === 0) return { clase: 'estado-hoy', texto: 'Último día de venta' };
+  if (dias === 1) return { clase: 'estado-pronto', texto: 'Falta 1 día' };
+  if (dias <= 7) return { clase: 'estado-cerca', texto: `Faltan ${dias} días` };
+  return { clase: 'estado-ok', texto: `Faltan ${dias} días` };
 }
 
 function pintarChips() {
@@ -614,17 +625,25 @@ function pintarLista() {
   lista.innerHTML = '';
   $('#mensaje-vacio').classList.toggle('oculto', productos.length > 0);
 
-  const vencidos = productosCache.filter((p) => diasRestantes(p.fecha_vencimiento) < 0).length;
-  const porVencer = productosCache.filter((p) => {
+  const listaVencidos = productosCache.filter((p) => diasRestantes(p.fecha_vencimiento) < 0);
+  const listaPorVencer = productosCache.filter((p) => {
     const d = diasRestantes(p.fecha_vencimiento);
     return d >= 0 && d <= 1;
-  }).length;
+  });
+  const vencidos = listaVencidos.length;
+  const porVencer = listaPorVencer.length;
+  const nombresDe = (ps) => ps.slice(0, 3).map((p) => `${p.nombre} (${p.cantidad || 1} und.)`).join(', ')
+    + (ps.length > 3 ? ` y ${ps.length - 3} más` : '');
 
   $('#resumen').classList.toggle('oculto', !vencidos && !porVencer);
   $('#resumen-vencidos').classList.toggle('oculto', !vencidos);
   $('#resumen-porvencer').classList.toggle('oculto', !porVencer);
-  if (vencidos) $('#resumen-vencidos').textContent = `${vencidos} producto${vencidos === 1 ? '' : 's'} vencido${vencidos === 1 ? '' : 's'} — retíralo${vencidos === 1 ? '' : 's'}`;
-  if (porVencer) $('#resumen-porvencer').textContent = `${porVencer} producto${porVencer === 1 ? '' : 's'} vence${porVencer === 1 ? '' : 'n'} hoy o mañana`;
+  if (vencidos) $('#resumen-vencidos').textContent = `Vencidos sin retirar: ${nombresDe(listaVencidos)}`;
+  if (porVencer) {
+    const fechas = [...new Set(listaPorVencer.map((p) => p.fecha_vencimiento))].sort();
+    $('#resumen-porvencer').textContent = fechas.map((f) =>
+      `Vencen el ${fechaCorta(f)}: ${nombresDe(listaPorVencer.filter((p) => p.fecha_vencimiento === f))}`).join('\n');
+  }
 
   for (const p of productos) {
     const dias = diasRestantes(p.fecha_vencimiento);
@@ -692,10 +711,10 @@ function abrirCampana() {
   for (const p of items) {
     const dias = diasRestantes(p.fecha_vencimiento);
     let clase = 'cm-semana', texto;
-    if (dias < 0) { clase = 'cm-vencido'; texto = `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}`; }
-    else if (dias === 0) { clase = 'cm-hoy'; texto = '¡Vence HOY!'; }
-    else if (dias === 1) { clase = 'cm-manana'; texto = 'Vence mañana'; }
-    else texto = `Vence en ${dias} días`;
+    if (dias < 0) clase = 'cm-vencido';
+    else if (dias === 0) clase = 'cm-hoy';
+    else if (dias === 1) clase = 'cm-manana';
+    texto = estadoProducto(dias).texto;
 
     const item = document.createElement('div');
     item.className = 'campana-item';
@@ -943,6 +962,36 @@ function pintarHistorial() {
   }
 }
 
+// Entrega un archivo generado en la app. En el celular lo guarda y abre el menú
+// Compartir (WhatsApp, Drive, Gmail, Archivos…), porque el visor interno de Android
+// ignora las descargas. En la computadora lo descarga normalmente.
+async function entregarArchivo(blob, nombre) {
+  const plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
+  if (esNativo) {
+    if (!plugins.Filesystem || !plugins.Share) {
+      alert('Para compartir el reporte desde el celular instala la versión nueva de la aplicación (APK).');
+      return;
+    }
+    const base64 = await new Promise((ok, mal) => {
+      const lector = new FileReader();
+      lector.onload = () => ok(String(lector.result).split(',')[1]);
+      lector.onerror = mal;
+      lector.readAsDataURL(blob);
+    });
+    const { uri } = await plugins.Filesystem.writeFile({ path: nombre, data: base64, directory: 'CACHE' });
+    await plugins.Share.share({ title: nombre, dialogTitle: 'Enviar o guardar el reporte', files: [uri] });
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Descarga el historial de retiros como CSV (se abre en Excel).
 function exportarRetiros() {
   const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
@@ -961,12 +1010,8 @@ function exportarRetiros() {
     ]),
   ];
   const csv = '﻿' + filas.map((f) => f.map(esc).join(';')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `retiros-${fechaLocalISO(new Date())}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  entregarArchivo(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `retiros-${fechaLocalISO(new Date())}.csv`)
+    .catch((e) => alert('No se pudo generar el archivo: ' + (e.message || e)));
 }
 
 // Genera un reporte PDF del mes visible: resumen, pérdidas por área y lista de retiros.
@@ -1061,16 +1106,9 @@ function generarReportePDF() {
     y += 15;
   }
 
-  // Descarga manual (evita un bug de doc.save en esta versión de jsPDF).
-  const blob = doc.output('blob');
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `reporte-${nombreMes}-${anioDashboard}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  // Se entrega con doc.output('blob') (doc.save tiene un bug en esta versión de jsPDF).
+  entregarArchivo(doc.output('blob'), `reporte-${nombreMes}-${anioDashboard}.pdf`)
+    .catch((e) => alert('No se pudo generar el reporte: ' + (e.message || e)));
 }
 
 // ---------- Vista: admin (usuarios) ----------

@@ -13,7 +13,9 @@
   "type": "commonjs",
   "dependencies": {
     "@capacitor/core": "^8.4.1",
-    "@capacitor/local-notifications": "^8.2.0"
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/share": "^8.0.3"
   },
   "devDependencies": {
     "@capacitor/android": "^8.4.1",

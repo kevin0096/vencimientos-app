@@ -275,6 +275,8 @@ button { font-family: inherit; }
 .resumen { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 
 .resumen-item {
+  white-space: pre-line;
+  line-height: 1.45;
   padding: 11px 14px;
   border-radius: var(--radio);
   font-weight: 600;
