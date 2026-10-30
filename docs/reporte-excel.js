@@ -129,7 +129,7 @@
     // --- Hoja 1: Resumen ---
     const F = [];
     F.push({ alto: 24, celdas: [['Reporte de pérdidas por vencimiento', E.titulo]] });
-    F.push({ celdas: [[`Control de Vencimientos · Tienda OXXO El Polo · ${tituloMes} · Generado el ${new Date().toLocaleString('es-PE')}`, E.sub]] });
+    F.push({ celdas: [[`Control de Vencimientos · ${tituloMes} · Generado el ${new Date().toLocaleString('es-PE')}`, E.sub]] });
     F.push({ celdas: [] });
     F.push({ celdas: [['Indicadores del mes', E.clave]] });
     F.push({ celdas: [['Productos retirados', E.txt], [retiros.length, E.ent]] });
