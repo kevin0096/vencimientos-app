@@ -798,7 +798,7 @@ function pintarDetalleMes() {
   if (!delMes.length) $('#detalle-mes').innerHTML = '';
 }
 
-function pintarBarras(contenedor, conteos, formato = null) {
+function pintarBarras(contenedor, conteos, formato = null, conPorcentaje = false) {
   const cont = $(contenedor);
   cont.innerHTML = '';
   const entradas = Object.entries(conteos).sort((a, b) => b[1] - a[1]);
@@ -807,6 +807,7 @@ function pintarBarras(contenedor, conteos, formato = null) {
     return;
   }
   const max = entradas[0][1];
+  const total = entradas.reduce((s, [, v]) => s + v, 0);
   for (const [etiqueta, valor] of entradas) {
     const fila = document.createElement('div');
     fila.className = 'barra-fila';
@@ -815,7 +816,8 @@ function pintarBarras(contenedor, conteos, formato = null) {
       <div class="barra-fondo"><div class="barra-relleno" style="width:${Math.round((valor / max) * 100)}%"></div></div>
     `;
     fila.querySelector('.etiqueta').textContent = etiqueta;
-    fila.querySelector('.valor').textContent = formato ? formato(valor) : valor;
+    const pct = conPorcentaje && total ? ` · ${(valor / total * 100).toLocaleString('es-PE', { maximumFractionDigits: 1 })} %` : '';
+    fila.querySelector('.valor').textContent = (formato ? formato(valor) : valor) + pct;
     cont.appendChild(fila);
   }
 }
@@ -862,7 +864,7 @@ async function pintarDashboard() {
     const u = r.retirado_por_nombre || '(sin nombre)';
     porUsuario[u] = (porUsuario[u] || 0) + n;
   });
-  pintarBarras('#grafico-categorias', porCategoria);
+  pintarBarras('#grafico-categorias', porCategoria, null, true);
   pintarBarras('#grafico-usuarios', porUsuario);
 
   // ----- Pérdida en S/ -----
@@ -887,7 +889,7 @@ async function pintarDashboard() {
     const v = valor(r);
     if (v > 0) perdidaPorCategoria[r.categoria] = (perdidaPorCategoria[r.categoria] || 0) + v;
   });
-  pintarBarras('#grafico-perdida', perdidaPorCategoria, soles);
+  pintarBarras('#grafico-perdida', perdidaPorCategoria, soles, true);
   if (!Object.keys(perdidaPorCategoria).length) {
     $('#grafico-perdida').innerHTML = '<p class="ayuda">Aún no hay pérdidas con precio registrado este mes. Agrega el precio a los productos para ver el monto en S/.</p>';
   }
@@ -1012,6 +1014,29 @@ function exportarRetiros() {
   const csv = '﻿' + filas.map((f) => f.map(esc).join(';')).join('\r\n');
   entregarArchivo(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `retiros-${fechaLocalISO(new Date())}.csv`)
     .catch((e) => alert('No se pudo generar el archivo: ' + (e.message || e)));
+}
+
+// Genera el reporte Excel del mes visible: resumen y pérdida por categoría,
+// gráficos de porcentaje por área y detalle de retiros (ver reporte-excel.js).
+async function generarReporteExcel() {
+  const inicio = new Date(anioDashboard, mesSeleccionado, 1);
+  const fin = new Date(anioDashboard, mesSeleccionado + 1, 0, 23, 59, 59);
+  const delMes = retirosCache.filter((r) => {
+    const f = new Date(r.retirado_en);
+    return f >= inicio && f <= fin;
+  });
+  const nombreMes = MESES_LARGO[mesSeleccionado];
+  const tituloMes = `${nombreMes.charAt(0).toUpperCase()}${nombreMes.slice(1)} ${anioDashboard}`;
+  const boton = $('#btn-pdf');
+  boton.disabled = true;
+  try {
+    const blob = await window.generarExcelMensual(delMes, tituloMes);
+    await entregarArchivo(blob, `reporte-${nombreMes}-${anioDashboard}.xlsx`);
+  } catch (e) {
+    alert('No se pudo generar el reporte: ' + (e.message || e));
+  } finally {
+    boton.disabled = false;
+  }
 }
 
 // Genera un reporte PDF del mes visible: resumen, pérdidas por área y lista de retiros.
@@ -1216,7 +1241,7 @@ function conectarEventos() {
 
   $('#btn-campana').addEventListener('click', abrirCampana);
   $('#btn-cerrar-campana').addEventListener('click', () => $('#modal-campana').classList.add('oculto'));
-  $('#btn-pdf').addEventListener('click', generarReportePDF);
+  $('#btn-pdf').addEventListener('click', generarReporteExcel);
 
   $('#filtro-desde').addEventListener('change', (e) => { filtroDesde = e.target.value; pintarHistorial(); });
   $('#filtro-hasta').addEventListener('change', (e) => { filtroHasta = e.target.value; pintarHistorial(); });
