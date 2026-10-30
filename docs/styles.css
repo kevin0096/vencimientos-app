@@ -962,6 +962,19 @@ button { font-family: inherit; }
   box-shadow: 0 0 0 3px rgba(185, 28, 28, .12);
 }
 
+/* ---------- Registro de cambios (auditoría) ---------- */
+.auditoria-fila {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  padding: 9px 12px;
+  font-size: .85rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.auditoria-fila .au-fecha { color: var(--tinta-3); white-space: nowrap; font-size: .78rem; }
+
 .oculto { display: none !important; }
 
 /* ============================================================

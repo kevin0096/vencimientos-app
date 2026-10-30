@@ -108,7 +108,9 @@ function traducirErrorAuth(error) {
   const m = (error && error.message) || '';
   if (m.includes('Invalid login credentials')) return 'Correo o contraseña incorrectos.';
   if (m.includes('already registered')) return 'Ese correo ya está registrado. Inicia sesión.';
-  if (m.includes('at least 6 characters')) return 'La contraseña debe tener mínimo 6 caracteres.';
+  const minimo = m.match(/at least (\d+) characters/);
+  if (minimo) return `La contraseña debe tener mínimo ${minimo[1]} caracteres.`;
+  if (m.includes('solo lo puede modificar el administrador')) return 'Un producto retirado solo lo puede modificar el administrador.';
   if (m.includes('valid email')) return 'Escribe un correo válido.';
   if (m.includes('Failed to fetch') || m.includes('NetworkError')) return 'Sin conexión a internet. Verifica tu señal.';
   return 'Error: ' + m;
@@ -321,8 +323,10 @@ async function retirarProducto(p) {
 
 async function eliminarProducto(p) {
   if (!confirm(`¿Eliminar "${p.nombre}" definitivamente? (no cuenta como retiro)`)) return;
-  const { error } = await sb.from('productos').delete().eq('id', p.id);
+  // .select() devuelve lo borrado: si viene vacío, la base de datos no dio permiso.
+  const { data, error } = await sb.from('productos').delete().eq('id', p.id).select('id');
   if (error) { alert('No se pudo eliminar: ' + error.message); return; }
+  if (!data || !data.length) { alert('Solo el administrador puede eliminar productos.'); return; }
   await cancelarAlarmas(p.id);
   await cargarProductos();
 }
@@ -697,7 +701,9 @@ function pintarLista() {
     tarjeta.querySelector('.btn-retirar').addEventListener('click', () => retirarProducto(p));
     tarjeta.querySelector('.btn-duplicar').addEventListener('click', () => abrirFormulario(null, p));
     tarjeta.querySelector('.btn-editar').addEventListener('click', () => abrirFormulario(p));
-    tarjeta.querySelector('.btn-borrar').addEventListener('click', () => eliminarProducto(p));
+    const btnBorrar = tarjeta.querySelector('.btn-borrar');
+    if (perfilActual && perfilActual.es_admin) btnBorrar.addEventListener('click', () => eliminarProducto(p));
+    else btnBorrar.remove(); // borrar es solo del administrador
     lista.appendChild(tarjeta);
   }
 
@@ -1165,7 +1171,35 @@ function generarReportePDF() {
 }
 
 // ---------- Vista: admin (usuarios) ----------
+// Registro de cambios (tabla auditoria): solo lo puede leer el administrador.
+async function pintarAuditoria() {
+  const cont = $('#lista-auditoria');
+  const { data, error } = await sb.from('auditoria').select('*').order('cuando', { ascending: false }).limit(40);
+  if (error) { cont.innerHTML = '<p class="ayuda">El registro de cambios aún no está activado en la base de datos.</p>'; return; }
+  if (!data.length) { cont.innerHTML = '<p class="ayuda">Todavía no hay cambios registrados.</p>'; return; }
+  cont.innerHTML = '';
+  for (const a of data) {
+    const antes = a.antes || {}, despues = a.despues || {};
+    let accion, objeto = despues.nombre || antes.nombre || despues.email || antes.email || '';
+    if (a.tabla === 'perfiles') {
+      if (antes.aprobado !== despues.aprobado && a.accion === 'UPDATE') accion = despues.aprobado ? 'Dio acceso a' : 'Quitó el acceso a';
+      else accion = a.accion === 'DELETE' ? 'Eliminó la cuenta de' : 'Modificó el perfil de';
+    } else if (a.accion === 'INSERT') accion = 'Registró';
+    else if (a.accion === 'DELETE') accion = 'Eliminó';
+    else if (!antes.retirado && despues.retirado) accion = 'Retiró';
+    else if (antes.retirado && !despues.retirado) accion = 'Devolvió a la lista';
+    else accion = 'Editó';
+    const fila = document.createElement('div');
+    fila.className = 'auditoria-fila';
+    fila.innerHTML = '<div class="au-texto"></div><div class="au-fecha"></div>';
+    fila.querySelector('.au-texto').textContent = `${a.usuario_nombre || 'sistema'} · ${accion} ${objeto}`;
+    fila.querySelector('.au-fecha').textContent = new Date(a.cuando).toLocaleString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    cont.appendChild(fila);
+  }
+}
+
 async function pintarUsuarios() {
+  pintarAuditoria();
   const { data, error } = await sb
     .from('perfiles')
     .select('*')

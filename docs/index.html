@@ -64,7 +64,7 @@
       </label>
       <label>
         Contraseña
-        <input type="password" id="login-password" placeholder="Mínimo 6 caracteres" autocomplete="current-password" />
+        <input type="password" id="login-password" placeholder="Mínimo 8 caracteres" autocomplete="current-password" />
       </label>
 
       <p id="login-error" class="error oculto"></p>
@@ -181,6 +181,10 @@
       <h2 class="titulo-seccion">Gestión de usuarios</h2>
       <p class="ayuda">Solo los usuarios con acceso aprobado pueden entrar a la app.</p>
       <div id="lista-usuarios" class="lista"></div>
+
+      <h2 class="titulo-seccion separado">Registro de cambios</h2>
+      <p class="ayuda">Quién registró, editó, retiró o eliminó productos y quién cambió accesos. Solo lo ve el administrador.</p>
+      <div id="lista-auditoria" class="historial"></div>
     </main>
 
     <button id="btn-escanear" class="fab fab-escaner" title="Escanear código de barras">
