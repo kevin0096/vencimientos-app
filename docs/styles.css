@@ -953,6 +953,15 @@ button { font-family: inherit; }
 
 .icono-espera { color: var(--tinta-3); font-size: 2.6rem; display: flex; justify-content: center; }
 
+/* ---------- Formulario: campos obligatorios ---------- */
+.nota-obligatorio { font-size: .8rem; color: var(--tinta-3); margin-top: -6px; }
+#foto-preview { cursor: pointer; min-height: 120px; }
+.modal-contenido .invalido,
+#foto-preview.invalido {
+  border-color: var(--rojo) !important;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, .12);
+}
+
 .oculto { display: none !important; }
 
 /* ============================================================

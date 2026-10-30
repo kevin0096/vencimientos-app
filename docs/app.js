@@ -215,11 +215,28 @@ async function guardarProducto() {
   const nombre = $('#input-nombre').value.trim();
   const fecha = $('#input-fecha').value;
   const categoria = $('#input-categoria').value;
-  const cantidad = Math.max(1, Math.round(Number($('#input-cantidad').value) || 1));
-  const precio = Math.max(0, Number($('#input-precio').value) || 0);
+  const textoCantidad = $('#input-cantidad').value.trim();
+  const textoPrecio = $('#input-precio').value.trim();
+  const cantidad = Number(textoCantidad);
+  const precio = Number(textoPrecio);
   const proveedor = $('#input-proveedor').value.trim();
-  if (!nombre) { alert('Escribe el nombre del producto.'); return; }
-  if (!fecha) { alert('Elige la fecha de vencimiento.'); return; }
+  const foto = fotoPendiente || (productoEditando && productoEditando.foto);
+
+  // Todos los campos son obligatorios: se marcan los que faltan y no se guarda.
+  document.querySelectorAll('#modal-form .invalido').forEach((el) => el.classList.remove('invalido'));
+  const faltan = [];
+  const falta = (sel, texto) => { faltan.push(texto); $(sel).classList.add('invalido'); };
+  if (!foto) falta('#foto-preview', 'la foto');
+  if (!nombre) falta('#input-nombre', 'el nombre');
+  if (!textoCantidad || !Number.isInteger(cantidad) || cantidad < 1) falta('#input-cantidad', 'la cantidad (entero, mínimo 1)');
+  if (!textoPrecio || !(precio > 0)) falta('#input-precio', 'el costo por unidad (mayor a S/ 0)');
+  if (!categoria) falta('#input-categoria', 'la categoría');
+  if (!proveedor) falta('#input-proveedor', 'el proveedor');
+  if (!fecha) falta('#input-fecha', 'la fecha de vencimiento');
+  if (faltan.length) {
+    alert('Para registrar el producto completa: ' + faltan.join(', ') + '.');
+    return;
+  }
 
   $('#btn-guardar').disabled = true;
   $('#btn-guardar').textContent = 'Guardando…';
@@ -252,6 +269,7 @@ async function guardarProducto() {
       return { error: { message: 'No se pudo guardar tras varios intentos' } };
     };
 
+    if (productoEditando && fotoPendiente) payload.foto = fotoPendiente; // foto cambiada al editar
     if (!productoEditando) {
       payload.foto = fotoPendiente;
       payload.creado_por = perfilActual.id;
@@ -733,19 +751,29 @@ function abrirCampana() {
   $('#modal-campana').classList.remove('oculto');
 }
 
+// Imagen de relleno del formulario cuando todavía no hay foto.
+const FOTO_VACIA = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160"><rect width="320" height="160" fill="#f0f1f4"/>'
+  + '<g transform="translate(144 46)" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M19.3 5.3h-6.6L9.3 9.3h-4a2.7 2.7 0 0 0-2.6 2.7v12a2.7 2.7 0 0 0 2.6 2.7h21.4a2.7 2.7 0 0 0 2.6-2.7V12a2.7 2.7 0 0 0-2.6-2.7h-4z"/>'
+  + '<circle cx="16" cy="17.3" r="4"/></g>'
+  + '<text x="160" y="112" text-anchor="middle" font-family="Arial" font-size="14" fill="#6b7280">Toca para tomar la foto</text></svg>');
+
 // producto = editar ese producto; plantilla = crear uno nuevo con datos precargados
 // (nuevo lote de un producto existente, o datos que llegan del escáner).
 function abrirFormulario(producto = null, plantilla = null) {
   productoEditando = producto;
   const base = producto || plantilla;
   if (plantilla) fotoPendiente = plantilla.foto || null;
+  if (producto) fotoPendiente = null;
+  document.querySelectorAll('#modal-form .invalido').forEach((el) => el.classList.remove('invalido'));
   $('#titulo-modal').textContent = producto ? 'Editar producto' : (plantilla ? 'Nuevo lote' : 'Nuevo producto');
-  $('#foto-preview').src = (producto ? producto.foto : fotoPendiente) || '';
+  $('#foto-preview').src = (producto ? producto.foto : fotoPendiente) || FOTO_VACIA;
   $('#input-nombre').value = base ? base.nombre : '';
-  $('#input-cantidad').value = base ? (base.cantidad || 1) : 1;
+  $('#input-cantidad').value = base ? (base.cantidad || 1) : '';
   $('#input-precio').value = base && base.precio ? base.precio : '';
   $('#input-proveedor').value = base ? (base.proveedor || '') : '';
-  $('#input-categoria').value = base ? base.categoria : CATEGORIAS[0];
+  $('#input-categoria').value = base && base.categoria ? base.categoria : '';
   $('#input-anticipacion').value = base ? String(base.anticipacion || 1) : '1';
   const manana = new Date(Date.now() + 86400000);
   $('#input-fecha').value = producto ? producto.fecha_vencimiento : fechaLocalISO(manana);
@@ -1201,6 +1229,11 @@ function conectarEventos() {
   $('#mes-next').addEventListener('click', () => moverMes(1));
 
   const selCat = $('#input-categoria');
+  const vacia = document.createElement('option');
+  vacia.value = '';
+  vacia.textContent = 'Elige una categoría';
+  vacia.disabled = true;
+  selCat.appendChild(vacia);
   CATEGORIAS.forEach((c) => {
     const opt = document.createElement('option');
     opt.value = c;
@@ -1215,13 +1248,26 @@ function conectarEventos() {
     if (!archivo) return;
     try {
       fotoPendiente = await redimensionarFoto(archivo);
-      abrirFormulario();
+      if ($('#modal-form').classList.contains('oculto')) {
+        abrirFormulario();
+      } else {
+        // Foto tomada desde el formulario abierto: solo se actualiza la vista previa.
+        $('#foto-preview').src = fotoPendiente;
+        $('#foto-preview').classList.remove('invalido');
+      }
     } catch (_) {
       alert('No se pudo procesar la foto. Intenta de nuevo.');
     }
   });
 
   $('#btn-guardar').addEventListener('click', guardarProducto);
+  $('#btn-foto-form').addEventListener('click', () => $('#input-camara').click());
+  $('#foto-preview').addEventListener('click', () => $('#input-camara').click());
+  // Al corregir un campo se quita la marca roja.
+  document.querySelectorAll('#modal-form input, #modal-form select').forEach((el) => {
+    el.addEventListener('input', () => el.classList.remove('invalido'));
+    el.addEventListener('change', () => el.classList.remove('invalido'));
+  });
   $('#btn-cancelar').addEventListener('click', () => {
     fotoPendiente = null;
     productoEditando = null;

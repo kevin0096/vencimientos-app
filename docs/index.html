@@ -194,7 +194,9 @@
   <div id="modal-form" class="modal oculto">
     <div class="modal-contenido">
       <h2 id="titulo-modal">Nuevo producto</h2>
-      <img id="foto-preview" alt="Foto del producto" />
+      <p class="nota-obligatorio">Todos los campos son obligatorios.</p>
+      <img id="foto-preview" alt="" />
+      <button id="btn-foto-form" class="btn secundario" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg>Tomar o cambiar foto</button>
       <label>
         Nombre del producto
         <input type="text" id="input-nombre" placeholder="Ej: Leche Gloria" autocomplete="off" />
@@ -202,11 +204,11 @@
       <div class="fila-doble">
         <label>
           Cantidad de unidades
-          <input type="number" id="input-cantidad" min="1" step="1" value="1" inputmode="numeric" />
+          <input type="number" id="input-cantidad" min="1" step="1" placeholder="Ej: 6" inputmode="numeric" required />
         </label>
         <label>
-          Precio por unidad (S/)
-          <input type="number" id="input-precio" min="0" step="0.10" placeholder="0.00" inputmode="decimal" />
+          Costo por unidad (S/)
+          <input type="number" id="input-precio" min="0.01" step="0.10" placeholder="0.00" inputmode="decimal" required />
         </label>
       </div>
       <label>
@@ -214,7 +216,7 @@
         <select id="input-categoria"></select>
       </label>
       <label>
-        Proveedor / marca <span class="opcional">(opcional)</span>
+        Proveedor / marca
         <input type="text" id="input-proveedor" placeholder="Ej: Coca-Cola, Alicorp…" autocomplete="off" list="lista-proveedores" />
         <datalist id="lista-proveedores"></datalist>
       </label>
